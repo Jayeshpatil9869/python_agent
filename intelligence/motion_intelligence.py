@@ -34,6 +34,7 @@ def build_motion_intelligence(website: WebsiteIntelligence) -> MotionIntelligenc
             "PARALLAX",
             "PINNED",
             "HORIZONTAL_SCROLL",
+            "CSS_FIXED",
         )
     ]
 
@@ -98,14 +99,14 @@ def build_motion_intelligence(website: WebsiteIntelligence) -> MotionIntelligenc
 
 def _tech_status(techs: list[TechnologyDetection]) -> tuple[str, str]:
     gsap = next((t for t in techs if t.name == "GSAP"), None)
-    st = None
-    if gsap and any("ScrollTrigger" in e for e in gsap.evidence):
-        st = gsap
     gsap_status = gsap.status if gsap else "UNKNOWN"
-    # If only behavior resembles GSAP
-    if not gsap:
-        gsap_status = "UNKNOWN"
-    st_status = st.status if st else ("POSSIBLE" if gsap else "UNKNOWN")
+    st_status = "UNKNOWN"
+    if gsap and any("ScrollTrigger" in e for e in gsap.evidence):
+        st_status = gsap.status
+    elif gsap and gsap.status in ("DETECTED", "HIGH_CONFIDENCE"):
+        st_status = "POSSIBLE"
+    elif gsap and gsap.status == "POSSIBLE":
+        st_status = "POSSIBLE"
     return gsap_status, st_status
 
 

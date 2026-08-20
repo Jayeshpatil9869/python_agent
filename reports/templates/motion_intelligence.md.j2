@@ -44,15 +44,28 @@
 
 ## Hero Animation
 
-```
-{{ motion.hero_animation }}
-```
+{% if motion.hero_animation.status == 'OBSERVED' %}
+- **Status:** OBSERVED
+- **Element:** {{ motion.hero_animation.element }}
+- **Trigger:** {{ motion.hero_animation.trigger }}
+- **Duration status:** {{ motion.hero_animation.duration_status }}
+- **Reveal at:** {{ motion.hero_animation.reveal_at_ms or 'UNKNOWN' }}ms
+- **Initial:** `{{ motion.hero_animation.initial }}`
+- **Final:** `{{ motion.hero_animation.final }}`
+{% else %}
+- **Status:** NOT_OBSERVED
+{% endif %}
 
 ## Navigation Animation
 
-```
-{{ motion.navigation_animation }}
-```
+{% if motion.navigation_animation.status == 'OBSERVED' %}
+- **Status:** OBSERVED
+- **Element:** {{ motion.navigation_animation.element }}
+- **Initial:** `{{ motion.navigation_animation.initial }}`
+- **Final:** `{{ motion.navigation_animation.final }}`
+{% else %}
+- **Status:** NOT_OBSERVED
+{% endif %}
 
 ## Scroll System
 

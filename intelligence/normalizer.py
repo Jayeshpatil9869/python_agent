@@ -23,6 +23,12 @@ def _assign_color_roles(colors: list[ColorToken]) -> list[ColorToken]:
     sorted_colors = sorted(colors, key=lambda c: c.count, reverse=True)
     roles = ["Background", "Text", "Primary", "Secondary", "Accent", "Surface", "Muted", "Border"]
     for i, color in enumerate(sorted_colors[: len(roles)]):
+        # Skip concatenated / multi-value garbage colors
+        if " " in color.value.strip() and not color.value.strip().startswith(("rgb", "hsl", "color", "oklab", "#")):
+            continue
+        if color.value.count("color(") > 1 or color.value.count("rgb(") > 1:
+            color.role = "Observed"
+            continue
         if not color.role:
             color.role = roles[i]
     return sorted_colors

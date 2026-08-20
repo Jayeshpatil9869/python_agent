@@ -97,7 +97,15 @@ async def observe_scroll(
             await page.wait_for_timeout(350)
 
             snapshot = await page.evaluate(SCROLL_SNAPSHOT_JS, TRACKED_SELECTORS)
-            bg = snapshot.get("bodyBg") or snapshot.get("htmlBg") or ""
+            # Also sample first large section background for color transitions
+            section_bg = await page.evaluate(
+                """() => {
+                    const section = document.querySelector('section, main, [class*="section"]');
+                    if (!section) return null;
+                    return getComputedStyle(section).backgroundColor;
+                }"""
+            )
+            bg = section_bg or snapshot.get("bodyBg") or snapshot.get("htmlBg") or ""
 
             if prev_bg and bg and bg != prev_bg:
                 color_transitions.append(
@@ -202,27 +210,48 @@ def _analyze_motion_history(
         avg_left = sum(abs(x) for x in left_deltas) / len(left_deltas)
         ratio = avg_top / avg_scroll if avg_scroll else 0
 
-        positions = {s.get("position") for s in samples}
-        sticky_like = "sticky" in positions or "fixed" in positions
+        always_fixed = all(s.get("position") == "fixed" for s in samples)
+        always_sticky = all(s.get("position") == "sticky" for s in samples)
+        sticky_like = "sticky" in {s.get("position") for s in samples} or "fixed" in {
+            s.get("position") for s in samples
+        }
 
-        # Pin: element top stays near constant while scroll advances significantly
         top_variance = max(s["top"] for s in samples) - min(s["top"] for s in samples)
         scroll_range = samples[-1]["scroll_y"] - samples[0]["scroll_y"]
-        pinned = sticky_like or (scroll_range > viewport_height and top_variance < 40)
 
-        # Horizontal: left moves while scrolling vertically
-        horizontal = avg_left > 20 and scroll_range > 100
+        # CSS fixed for entire page != ScrollTrigger pin
+        css_fixed = always_fixed and top_variance < 8
+        # True pin/sticky section: sticky/fixed only part of range OR sticky with locked top mid-scroll
+        mid = samples[len(samples) // 2]
+        pinned_section = (
+            not css_fixed
+            and sticky_like
+            and scroll_range > viewport_height * 0.5
+            and top_variance < 50
+            and (mid.get("position") in ("sticky", "fixed"))
+        )
 
-        # Parallax: top moves slower/faster than scroll
-        parallax = abs(ratio + 1) > 0.25 and abs(ratio) < 0.95 and not pinned
+        horizontal = avg_left > 30 and scroll_range > 150
 
-        # Scroll-linked opacity / scale / clip
+        # Normal document flow ≈ ratio -1.0; require differential movement for parallax
+        normal_scroll = abs(ratio + 1.0) < 0.12
+        parallax = (
+            not normal_scroll
+            and abs(ratio + 1) > 0.2
+            and abs(ratio) < 0.9
+            and not css_fixed
+            and not pinned_section
+            and scroll_range > 200
+        )
+
         opacity_changed = max(opacity_vals) - min(opacity_vals) > 0.15 if opacity_vals else False
         scale_changed = max(scale_vals) - min(scale_vals) > 0.05 if scale_vals else False
-        clip_changed = len(set(clip_vals)) > 1
+        clip_changed = len({c for c in clip_vals if c and c != "none"}) > 0 and len(set(clip_vals)) > 1
 
         classifications: list[tuple[str, ConfidenceLevel]] = []
-        if pinned:
+        if css_fixed:
+            classifications.append(("CSS_FIXED", ConfidenceLevel.OBSERVED))
+        elif pinned_section:
             classifications.append(("PINNED", ConfidenceLevel.OBSERVED))
         if horizontal:
             classifications.append(("HORIZONTAL_SCROLL", ConfidenceLevel.OBSERVED))
@@ -234,10 +263,21 @@ def _analyze_motion_history(
             classifications.append(("SCROLL_LINKED_SCALE", ConfidenceLevel.OBSERVED))
         if clip_changed:
             classifications.append(("SCROLL_CLIP_REVEAL", ConfidenceLevel.OBSERVED))
-        if abs(avg_top) > 5 and not pinned and not parallax:
+        # Do NOT emit SCROLL_TRANSLATE for normal 1:1 document scroll
+        if (
+            not normal_scroll
+            and abs(avg_top) > 15
+            and not css_fixed
+            and not pinned_section
+            and not parallax
+            and (opacity_changed or scale_changed or clip_changed or abs(ratio + 1) > 0.2)
+        ):
             classifications.append(("SCROLL_TRANSLATE", ConfidenceLevel.OBSERVED))
 
-        scrub = "YES" if (opacity_changed or scale_changed or parallax or horizontal) else "UNKNOWN"
+        if not classifications:
+            continue
+
+        scrub = "YES" if (opacity_changed or scale_changed or parallax or horizontal or clip_changed) else "NO"
 
         for classification, conf in classifications:
             findings.append(
@@ -250,11 +290,12 @@ def _analyze_motion_history(
                         "avg_top_delta": round(avg_top, 2),
                         "avg_left_delta": round(avg_left, 2),
                         "parallax_ratio": round(ratio, 3),
+                        "normal_scroll": normal_scroll,
                         "opacity_range": [min(opacity_vals), max(opacity_vals)] if opacity_vals else [],
                         "scale_range": [min(scale_vals), max(scale_vals)] if scale_vals else [],
                     },
                     scrub=scrub,
-                    pin="YES" if pinned else "NO",
+                    pin="YES" if classification == "PINNED" else ("CSS_FIXED" if classification == "CSS_FIXED" else "NO"),
                     parallax_ratio=round(ratio, 3) if classification == "PARALLAX" else None,
                     confidence=conf,
                     evidence=["runtime/scroll/findings.json", f"element:{key}"],

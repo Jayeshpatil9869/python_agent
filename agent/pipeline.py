@@ -23,7 +23,7 @@ from intelligence.schema import PageAnalysis
 from observation.cursor import observe_cursor
 from observation.interaction import run_interaction_lab
 from observation.mutation_observer import observe_runtime_animations
-from observation.page_load import observe_page_load
+from observation.page_load import install_page_load_tracer, observe_page_load
 from observation.preloader import observe_preloader
 from observation.scroll import observe_scroll
 from observation.screenshot import capture_full_page
@@ -45,29 +45,30 @@ async def analyze_page(
     async with browser.new_context() as context:
         page = await browser.new_page(context)
         try:
-            # P0: Preloader observation (early navigation samples)
+            # P0: Early motion — install tracer, capture preloader + page-load from first paint
             if options.deep or options.animations:
                 logger.info("[PRELOADER] analyzing %s", url)
+                await install_page_load_tracer(page)
                 page_analysis.preloader = await observe_preloader(page, url, output_dir)
                 stage_results["preloader"] = {
-                    "status": StageStatus.SUCCESS.value if page_analysis.preloader.observed else StageStatus.NO_DATA.value,
-                    "metrics": {"observed": page_analysis.preloader.observed, "type": page_analysis.preloader.type},
+                    "status": (
+                        StageStatus.SUCCESS.value
+                        if page_analysis.preloader.observed
+                        else StageStatus.NO_DATA.value
+                    ),
+                    "metrics": {
+                        "observed": page_analysis.preloader.observed,
+                        "type": page_analysis.preloader.type,
+                    },
                 }
-            else:
-                stage_results["preloader"] = {"status": StageStatus.SKIPPED.value}
 
-            logger.info("[CRAWL] loading page %s", url)
-            load_metrics = await load_page(page, url, browser.settings.stabilization_wait_ms)
-            html = await page.content()
-            page_analysis.html_size = len(html)
-            page_analysis.title = await page.title()
-
-            # P0: Page-load timeline (sample after stabilization window starts)
-            if options.deep or options.animations:
-                logger.info("[PAGE-LOAD] analyzing choreography")
-                # Reload once more for clean page-load capture after preloader settled
-                await page.goto(url, wait_until="domcontentloaded", timeout=45000)
-                page_analysis.page_load = await observe_page_load(page, output_dir)
+                logger.info("[PAGE-LOAD] collecting early choreography trace")
+                # Tracer already ran during preloader nav; harvest buffer, then soft reload if empty
+                page_analysis.page_load = await observe_page_load(page, output_dir, wait_ms=500)
+                if len(page_analysis.page_load.phases) < 3:
+                    page_analysis.page_load = await observe_page_load(
+                        page, output_dir, wait_ms=2800, url=url
+                    )
                 stage_results["page_load"] = {
                     "status": (
                         StageStatus.SUCCESS.value
@@ -77,10 +78,18 @@ async def analyze_page(
                     "metrics": {
                         "phases": len(page_analysis.page_load.phases),
                         "hero": page_analysis.page_load.hero_animation.get("status"),
+                        "nav": page_analysis.page_load.navigation_animation.get("status"),
                     },
                 }
             else:
+                stage_results["preloader"] = {"status": StageStatus.SKIPPED.value}
                 stage_results["page_load"] = {"status": StageStatus.SKIPPED.value}
+
+            logger.info("[CRAWL] loading page %s", url)
+            load_metrics = await load_page(page, url, browser.settings.stabilization_wait_ms)
+            html = await page.content()
+            page_analysis.html_size = len(html)
+            page_analysis.title = await page.title()
 
             meta = await page.evaluate(
                 """() => ({

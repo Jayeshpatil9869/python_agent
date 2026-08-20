@@ -89,24 +89,26 @@ TECH_SIGNATURES: dict[str, list[tuple[str, str, float]]] = {
 }
 
 
-def _confidence_to_level(confidence: float) -> ConfidenceLevel:
-    if confidence >= 0.9:
-        return ConfidenceLevel.DETECTED
-    if confidence >= 0.7:
-        return ConfidenceLevel.INFERRED
-    if confidence >= 0.45:
-        return ConfidenceLevel.ESTIMATED
-    return ConfidenceLevel.UNKNOWN
-
-
-def _status_label(confidence: float) -> str:
-    if confidence >= 0.9:
+def _status_label(confidence: float, has_runtime_global: bool = False) -> str:
+    if confidence >= 0.9 and has_runtime_global:
         return "DETECTED"
+    if confidence >= 0.9:
+        return "HIGH_CONFIDENCE"
     if confidence >= 0.7:
         return "HIGH_CONFIDENCE"
     if confidence >= 0.45:
         return "POSSIBLE"
     return "WEAK"
+
+
+def _confidence_to_level(confidence: float, status: str) -> ConfidenceLevel:
+    if status == "DETECTED":
+        return ConfidenceLevel.DETECTED
+    if status == "HIGH_CONFIDENCE":
+        return ConfidenceLevel.INFERRED
+    if status == "POSSIBLE":
+        return ConfidenceLevel.ESTIMATED
+    return ConfidenceLevel.UNKNOWN
 
 
 async def analyze_technology(page, html: str) -> list[TechnologyDetection]:
@@ -122,10 +124,16 @@ async def analyze_technology(page, html: str) -> list[TechnologyDetection]:
 
     try:
         globals_found = await page.evaluate(
-            """() => Object.keys(window).filter(k => [
-                'gsap', 'ScrollTrigger', 'THREE', 'Lenis', 'Swiper', 'React', 'Vue',
-                '__NEXT_DATA__', '__NUXT__', 'Shopify', 'lottie', 'anime', 'jQuery'
-            ].includes(k) || k.startsWith('__NEXT'))"""
+            """() => {
+                const keys = [
+                    'gsap', 'ScrollTrigger', 'THREE', 'Lenis', 'Swiper', 'React', 'Vue',
+                    '__NEXT_DATA__', '__NUXT__', 'Shopify', 'lottie', 'anime', 'jQuery'
+                ];
+                return keys.filter(k => {
+                    try { return typeof window[k] !== 'undefined' && window[k] !== null; }
+                    catch (e) { return false; }
+                });
+            }"""
         )
     except Exception:
         globals_found = []
@@ -135,21 +143,26 @@ async def analyze_technology(page, html: str) -> list[TechnologyDetection]:
     for name, signatures in TECH_SIGNATURES.items():
         evidence: list[str] = []
         score = 0.0
+        has_global = False
+        has_strong_marker = False
 
         for sig_type, sig_value, weight in signatures:
             matched = False
             if sig_type == "global" and sig_value in globals_found:
                 evidence.append(f"window.{sig_value}")
                 matched = True
+                has_global = True
             elif sig_type == "path" and sig_value.lower() in combined_sources:
                 evidence.append(f"resource/path:{sig_value}")
                 matched = True
             elif sig_type == "script" and sig_value.lower() in html_lower:
                 evidence.append(sig_value)
                 matched = True
+                has_strong_marker = True
             elif sig_type == "meta" and sig_value.lower() in html_lower:
                 evidence.append(f"meta:{sig_value}")
                 matched = True
+                has_strong_marker = True
             elif sig_type == "attr":
                 try:
                     found = await page.evaluate(
@@ -158,6 +171,7 @@ async def analyze_technology(page, html: str) -> list[TechnologyDetection]:
                     if found:
                         evidence.append(f"attr:{sig_value}")
                         matched = True
+                        has_strong_marker = True
                 except Exception:
                     pass
             elif sig_type == "class":
@@ -178,7 +192,7 @@ async def analyze_technology(page, html: str) -> list[TechnologyDetection]:
                     if count >= 5:
                         evidence.append(f"class_pattern:{sig_value} ({count} elements)")
                         matched = True
-                        weight *= min(1.0, count / 20)
+                        weight *= min(1.0, count / 20) * 0.5  # weaken generic class patterns
                 except Exception:
                     pass
 
@@ -188,16 +202,25 @@ async def analyze_technology(page, html: str) -> list[TechnologyDetection]:
         if not evidence:
             continue
 
+        # Path-only library hits (GSAP/Three without globals) capped as POSSIBLE
+        only_path = all(e.startswith("resource/path:") for e in evidence)
+        if only_path and not has_global:
+            score = min(score, 0.55)
+
         confidence = min(0.98, score)
         if confidence < 0.45:
             continue
 
+        status = _status_label(confidence, has_runtime_global=has_global or has_strong_marker)
+        if only_path and not has_global:
+            status = "POSSIBLE"
+
         detections.append(
             TechnologyDetection(
                 name=name,
-                status=_status_label(confidence),
+                status=status,
                 confidence=round(confidence, 2),
-                confidence_level=_confidence_to_level(confidence),
+                confidence_level=_confidence_to_level(confidence, status),
                 evidence=evidence,
             )
         )

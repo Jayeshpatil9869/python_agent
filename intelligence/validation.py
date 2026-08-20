@@ -129,6 +129,43 @@ def validate_analysis_output(
     if not screenshots and not result["failures"]:
         result["warnings"].append("No screenshots found")
 
+    # Semantic motion quality gates
+    preloader = _load_json_obj(data_dir / "preloader.json")
+    if preloader.get("observed"):
+        timeline = preloader.get("timeline") or []
+        overlays = [t.get("overlays", 0) for t in timeline]
+        pcts = [t.get("pct") for t in timeline if t.get("pct")]
+        unique_pcts = {p for p in pcts}
+        if max(overlays or [0]) == 0 and len(unique_pcts) <= 1:
+            result["quality_errors"].append(
+                "Preloader marked observed but no overlay dismissal and no progressing percentage"
+            )
+        if preloader.get("type") == "percentage_loader" and len(unique_pcts) <= 1:
+            result["quality_errors"].append(
+                "percentage_loader claimed but percentage did not advance"
+            )
+
+    motion = _load_json_obj(data_dir / "motion.json")
+    if motion:
+        result["metrics"]["scroll_findings"] = len(motion.get("scrolltrigger_analysis") or [])
+        result["metrics"]["preloader_observed"] = bool((motion.get("preloader") or {}).get("observed"))
+        result["metrics"]["hero_status"] = (motion.get("hero_animation") or {}).get("status")
+
+    # Tech wording vs confidence
+    for tech in technologies:
+        name = (tech.get("name") or "").lower()
+        status = (tech.get("status") or "").upper()
+        conf = float(tech.get("confidence") or 0)
+        if status == "POSSIBLE" and conf >= 0.7:
+            result["warnings"].append(f"{tech.get('name')}: status POSSIBLE with confidence {conf}")
+        if name == "gsap" and status in ("DETECTED", "HIGH_CONFIDENCE"):
+            evidence = " ".join(tech.get("evidence") or [])
+            if "window.gsap" not in evidence and "window.ScrollTrigger" not in evidence:
+                if evidence.startswith("resource/path:") or "resource/path:gsap" in evidence:
+                    result["quality_errors"].append(
+                        "GSAP claimed DETECTED/HIGH_CONFIDENCE from path-only evidence"
+                    )
+
     # Semantic report linting
     tech_by_name = {t.get("name", "").lower(): t for t in technologies}
     for report_name in reports:
@@ -166,6 +203,16 @@ def validate_analysis_output(
     validation_path = data_dir / "validation.json"
     write_json(validation_path, result)
     return result
+
+
+def _load_json_obj(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
 
 def _load_json_list(path: Path) -> list:

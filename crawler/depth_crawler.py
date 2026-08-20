@@ -1,7 +1,8 @@
-"""Depth-aware BFS website crawler."""
+"""Depth-aware BFS website crawler with SPA/hydration-aware link discovery."""
 
 import logging
 from collections import deque
+from urllib.parse import urlparse
 
 from playwright.async_api import Page
 
@@ -13,35 +14,83 @@ from intelligence.schema import CrawlPageRecord
 
 logger = logging.getLogger(__name__)
 
+LINK_DISCOVERY_JS = """
+(base) => {
+    const out = new Set();
+    const add = (raw) => {
+        if (!raw) return;
+        try {
+            const u = new URL(raw, base);
+            if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+            // Drop pure hash links that stay on same path
+            const path = u.pathname.replace(/\\/$/, '') || '/';
+            const basePath = new URL(base).pathname.replace(/\\/$/, '') || '/';
+            if (path === basePath && !u.search) return;
+            u.hash = '';
+            out.add(u.href);
+        } catch (e) {}
+    };
+    document.querySelectorAll('a[href]').forEach(a => add(a.href || a.getAttribute('href')));
+    document.querySelectorAll('[data-href], [data-url], [data-link]').forEach(el => {
+        add(el.getAttribute('data-href') || el.getAttribute('data-url') || el.getAttribute('data-link'));
+    });
+    // Next.js / router style
+    document.querySelectorAll('[role="link"]').forEach(el => {
+        add(el.getAttribute('href') || el.dataset?.href);
+    });
+    return Array.from(out);
+}
+"""
+
 
 async def discover_links_from_page(page: Page, base_url: str) -> list[str]:
     links: set[str] = set()
     try:
-        hrefs = await page.eval_on_selector_all(
-            "a[href]",
-            "els => els.map(e => e.getAttribute('href')).filter(Boolean)",
-        )
+        # Wait briefly for SPA hydration / late nav injection
+        try:
+            await page.wait_for_load_state("networkidle", timeout=5000)
+        except Exception:
+            await page.wait_for_timeout(800)
+
+        hrefs = await page.evaluate(LINK_DISCOVERY_JS, base_url)
         for href in hrefs:
             normalized = normalize_url(href, base_url)
             if normalized and same_origin(normalized, base_url):
+                # Skip identical seed variants
+                if _path_key(normalized) == _path_key(base_url) and not urlparse(normalized).query:
+                    continue
                 links.add(normalized)
     except Exception as exc:
         logger.debug("Link discovery failed: %s", exc)
     return list(links)
 
 
+def _path_key(url: str) -> str:
+    p = urlparse(url)
+    return (p.netloc.lower(), (p.path.rstrip("/") or "/").lower())
+
+
 async def _discover_nav_links(page: Page, base_url: str) -> list[str]:
-    selectors = ["nav a[href]", "header a[href]", "footer a[href]", "[role='navigation'] a[href]"]
+    selectors = [
+        "nav a[href]",
+        "header a[href]",
+        "footer a[href]",
+        "[role='navigation'] a[href]",
+        "[class*='nav'] a[href]",
+        "[class*='menu'] a[href]",
+    ]
     links: set[str] = set()
     for selector in selectors:
         try:
             hrefs = await page.eval_on_selector_all(
                 selector,
-                "els => els.map(e => e.getAttribute('href')).filter(Boolean)",
+                "els => els.map(e => e.href || e.getAttribute('href')).filter(Boolean)",
             )
             for href in hrefs:
                 normalized = normalize_url(href, base_url)
                 if normalized and same_origin(normalized, base_url):
+                    if _path_key(normalized) == _path_key(base_url):
+                        continue
                     links.add(normalized)
         except Exception:
             continue
@@ -67,10 +116,11 @@ async def crawl_with_depth(page: Page, options: AnalysisOptions) -> list[CrawlPa
     results: list[CrawlPageRecord] = []
     failed: set[str] = set()
 
-    # Sitemap complements discovery but respects depth when assigning
     sitemap_urls = await fetch_sitemap_urls(base_url, options.same_origin)
     for url in sitemap_urls[: max_pages * 2]:
         if url not in queued and same_origin(url, base_url):
+            if max_depth < 1:
+                continue
             queued.add(url)
             queue.append(
                 CrawlPageRecord(
@@ -107,6 +157,7 @@ async def crawl_with_depth(page: Page, options: AnalysisOptions) -> list[CrawlPa
         page_links = await discover_links_from_page(page, base_url)
         nav_links = await _discover_nav_links(page, base_url)
         child_links = set(page_links) | set(nav_links)
+        logger.info("[CRAWL] discovered %d child links at depth %d", len(child_links), current.depth)
 
         for link in sorted(child_links, key=lambda u: (-score_page_importance(u), u)):
             if link in visited or link in queued:
@@ -126,7 +177,6 @@ async def crawl_with_depth(page: Page, options: AnalysisOptions) -> list[CrawlPa
                 )
             )
 
-    # Sort by depth then importance
     results.sort(key=lambda r: (r.depth, -score_page_importance(r.url), r.url))
     return results[:max_pages]
 

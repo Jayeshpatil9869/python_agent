@@ -162,21 +162,53 @@ def _experience_score(website: WebsiteIntelligence) -> dict:
     mi = website.motion_intelligence
     ds = website.design_system
 
-    visual = min(20, 8 + len(ds.colors) + (4 if ds.gradients else 0))
-    typography = min(10, 4 + min(6, len(ds.typography)))
-    motion = 4
+    visual = min(20, 6 + min(8, len(ds.colors)) + (3 if ds.gradients else 0) + (2 if ds.shadows else 0))
+    typography = min(10, 3 + min(5, len(ds.typography)))
+
+    motion = 2
     if mi.preloader.observed:
         motion += 3
     if mi.page_load.hero_animation.get("status") == "OBSERVED":
-        motion += 3
-    motion += min(6, len(mi.scrolltrigger_analysis))
-    motion += min(4, len(mi.parallax) + len(mi.pinning))
+        motion += 4
+    real_scroll = [
+        f for f in mi.scrolltrigger_analysis
+        if f.classification not in ("CSS_FIXED", "SCROLL_TRANSLATE")
+    ]
+    motion += min(5, len(real_scroll))
+    motion += min(3, len(mi.parallax) + len([p for p in mi.pinning if p.classification == "PINNED"]))
     motion = min(20, motion)
 
-    interaction = min(15, 3 + min(6, len(mi.hover_motion)) + (3 if mi.cursor.custom_cursor else 0) + min(3, len(mi.micro_interactions)))
-    scroll_exp = min(15, 3 + min(6, len(mi.scrolltrigger_analysis)) + (3 if mi.horizontal_scroll else 0) + (3 if mi.pinning else 0))
-    responsive = min(10, 4 + (3 if website.responsive_system.get("viewports_tested") else 0) + (3 if mi.mobile_motion else 0))
-    originality = min(10, 3 + (2 if mi.preloader.observed else 0) + (2 if mi.cursor.custom_cursor else 0) + (3 if mi.horizontal_scroll or mi.pinning else 0))
+    hover_n = len(mi.hover_motion)
+    interaction = min(
+        15,
+        2
+        + min(5, hover_n)
+        + (3 if mi.cursor.custom_cursor and mi.cursor.confidence.value == "OBSERVED" else 0)
+        + (1 if mi.cursor.custom_cursor and mi.cursor.confidence.value == "INFERRED" else 0)
+        + min(3, len(mi.micro_interactions) // 3),
+    )
+    scroll_exp = min(
+        15,
+        2
+        + min(5, len(real_scroll))
+        + (3 if mi.horizontal_scroll else 0)
+        + (3 if any(p.classification == "PINNED" for p in mi.pinning) else 0)
+        + (2 if mi.parallax else 0),
+    )
+    responsive = min(
+        10,
+        3
+        + (4 if len(website.responsive_system.get("viewports_tested") or []) >= 4 else 2)
+        + (2 if mi.mobile_motion.get("status") == "COMPARED" else 0),
+    )
+    originality = min(
+        10,
+        2
+        + (2 if mi.preloader.observed else 0)
+        + (2 if mi.cursor.cursor_type == "custom_follower" else 0)
+        + (3 if mi.horizontal_scroll or any(p.classification == "PINNED" for p in mi.pinning) else 0)
+        + (1 if mi.page_load.hero_animation.get("status") == "OBSERVED" else 0),
+    )
 
     total = visual + typography + motion + interaction + scroll_exp + responsive + originality
     return {
@@ -190,5 +222,5 @@ def _experience_score(website: WebsiteIntelligence) -> dict:
         "originality_signals": originality,
         "total": total,
         "max": 100,
-        "note": "Not an official Awwwards score. Derived only from observed evidence.",
+        "note": "Not an official Awwwards score. Derived only from observed evidence. Inflated scores avoided when hero/preloader/scrub evidence is missing.",
     }
