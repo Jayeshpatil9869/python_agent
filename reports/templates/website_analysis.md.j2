@@ -1,0 +1,131 @@
+# Website Reverse Engineering Report
+
+**URL:** {{ website.url }}  
+**Title:** {{ website.title }}  
+**Analyzed:** {{ website.analyzed_at }}  
+**Pages Analyzed:** {{ pages|length }}
+
+## Analysis Status
+
+**Overall:** {{ website.analysis_status or 'UNKNOWN' }}
+
+{% if website.stage_results %}
+| Stage | Status |
+|-------|--------|
+{% for stage, info in website.stage_results.items() if stage != 'validation' %}
+| {{ stage }} | {{ info.get('status', 'unknown') if info is mapping else info }} |
+{% endfor %}
+{% endif %}
+
+## Executive Summary
+
+{% if ai.full_analysis %}
+{{ ai.full_analysis }}
+{% else %}
+This report contains browser-observed evidence collected without AI interpretation.
+Run with `--ai` for design interpretation.
+{% endif %}
+
+## Website Overview
+
+| Metric | Value |
+|--------|-------|
+| Pages | {{ pages|length }} |
+| Technologies | {{ technologies|length }} |
+| Colors observed | {{ design_system.colors|length }} |
+| Typography tokens | {{ design_system.typography|length }} |
+
+## Design Direction
+
+Evidence-based visual analysis from computed styles and DOM structure.
+
+{% if page %}
+- DOM depth: {{ page.dom_depth }}
+- Sections: {{ page.section_count }}
+- Div-heavy ratio: {{ page.dom_summary.div_heavy_ratio if page.dom_summary else 'N/A' }}
+{% endif %}
+
+## Information Architecture
+
+### Sitemap
+
+{% for url in website.sitemap_urls %}
+- {{ url }}
+{% endfor %}
+
+## Page Analysis
+
+{% for p in pages %}
+### {{ p.url }}
+
+- **Title:** {{ p.title }}
+- **Meta:** {{ p.meta_description[:120] if p.meta_description else 'N/A' }}
+- **Links:** {{ p.links_count }} | **Buttons:** {{ p.buttons_count }} | **Images:** {{ p.images_count }}
+
+{% endfor %}
+
+## Component Architecture
+
+See COMPONENT-MAP.md for detailed component tree.
+
+## Responsive Behavior
+
+See RESPONSIVE-SPEC.md for viewport matrix.
+
+## Interaction Design
+
+See INTERACTION-MAP.md for interaction table.
+
+## Motion Design
+
+See ANIMATION-SPEC.md for animation specifications.
+
+## Technology
+
+{% for tech in technologies %}
+- **{{ tech.name }}** ({{ tech.confidence_level.value }}, confidence: {{ tech.confidence }})
+  - Evidence: {{ tech.evidence|join(', ') }}
+{% endfor %}
+
+## Accessibility
+
+{% if page and page.accessibility %}
+- ARIA attributes: {{ page.accessibility.aria_usage }}
+- Landmarks: {{ page.accessibility.landmarks|join(', ') }}
+- Missing alt images: {{ page.accessibility.missing_alt_images }}
+- Notes: {{ page.accessibility.notes|join('; ') }}
+{% endif %}
+
+## SEO
+
+{% if page and page.seo %}
+- Title: {{ page.seo.title }}
+- Description: {{ page.seo.meta_description }}
+- Issues: {{ page.seo.issues|join(', ') if page.seo.issues else 'None observed' }}
+{% endif %}
+
+## Performance
+
+{% if page and page.performance %}
+- DOM Content Loaded: {{ page.performance.dom_content_loaded_ms or 'Not measured' }}ms
+- Resources: {{ page.performance.resource_count }}
+- JS size: {{ page.performance.js_size_kb }} KB
+- CSS size: {{ page.performance.css_size_kb }} KB
+{% endif %}
+
+## Key Design Patterns
+
+{% if page and page.layout_summary %}
+- Containers: {{ page.layout_summary.containers }}
+- Grid patterns: {{ page.layout_summary.grid }}
+- Sticky elements: {{ page.layout_summary.sticky_elements }}
+{% endif %}
+
+## Rebuild Recommendations
+
+See RECONSTRUCTION-PROMPT.md for a reusable build prompt.
+
+## Confidence & Evidence
+
+All findings are classified as DETECTED, OBSERVED, INFERRED, ESTIMATED, or UNKNOWN.
+Raw evidence is available in `data/website.json`.

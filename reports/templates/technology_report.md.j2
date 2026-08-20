@@ -1,0 +1,23 @@
+# Technology Report
+
+**URL:** {{ website.url }}
+
+| Technology | Status | Confidence | Evidence |
+|------------|--------|------------|----------|
+{% for tech in technologies %}
+| {{ tech.name }} | {{ tech.status }} | {{ tech.confidence_level.value }} ({{ tech.confidence }}) | {{ tech.evidence|join('; ') }} |
+{% endfor %}
+
+{% if not technologies %}
+No technologies detected with sufficient evidence.
+{% endif %}
+
+## Detection Methodology
+
+Technologies are detected through:
+- Global JavaScript objects
+- Script paths and bundles
+- HTML attributes and meta tags
+- CSS class patterns
+
+**Important:** Detections require evidence. Inferences are marked accordingly.

@@ -1,0 +1,41 @@
+{% if ai.reconstruction_prompt %}
+{{ ai.reconstruction_prompt }}
+{% else %}
+# Reconstruction Prompt
+
+## Role
+Senior frontend architect and creative technologist.
+
+## Objective
+Build an ORIGINAL website inspired by design principles observed at {{ website.url }}.
+
+## Do Not Copy
+- logos
+- proprietary text
+- exact imagery
+- trademarks
+- proprietary assets
+
+## Design Principles (Observed)
+
+### Colors
+{% for c in design_system.colors[:8] %}
+- {{ c.role }}: {{ c.value }}
+{% endfor %}
+
+### Typography
+{% for t in design_system.typography[:6] %}
+- {{ t.role }}: {{ t.font_family }} at {{ t.font_size }}
+{% endfor %}
+
+### Technology Clues
+{% for tech in technologies %}
+- {{ tech.name }} ({{ tech.confidence_level.value }})
+{% endfor %}
+
+## Implementation Requirements
+- Semantic HTML5
+- Component-based architecture
+- Mobile-first responsive design
+- Document confidence levels for all inferences
+{% endif %}

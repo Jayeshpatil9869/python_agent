@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scroll — Fixture Site</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="sticky-header">Sticky Header</header>
+  <main class="scroll-main">
+    <section class="hero"><h1>Scroll Test</h1></section>
+    <section class="parallax-block" data-parallax>Parallax-like block</section>
+    <section style="height: 200vh;">Long scroll content</section>
+  </main>
+  <script>
+    window.addEventListener('scroll', () => {
+      const el = document.querySelector('[data-parallax]');
+      if (el) el.style.transform = `translateY(${window.scrollY * -0.3}px)`;
+    });
+  </script>
+</body>
+</html>

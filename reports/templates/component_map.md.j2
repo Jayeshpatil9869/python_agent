@@ -1,0 +1,23 @@
+# Component Map
+
+**URL:** {{ website.url }}
+
+{% for p in pages %}
+## Page: {{ p.url }}
+
+{% for c in p.components %}
+### {{ c.name }}
+
+- **Purpose:** {{ c.purpose }}
+- **Selector:** `{{ c.selector }}`
+- **Structure:** {{ c.visual_structure }}
+- **Confidence:** {{ c.confidence.value }}
+
+```
+{{ c.name }}
+{% for child in c.children %}├── {{ child }}
+{% endfor %}
+```
+
+{% endfor %}
+{% endfor %}

@@ -1,0 +1,65 @@
+# Design System
+
+**Source:** {{ website.url }}
+
+## Color Palette
+
+| Role | Color | Count | Confidence |
+|------|-------|-------|------------|
+{% for color in design_system.colors %}
+| {{ color.role or 'Observed' }} | `{{ color.value }}` | {{ color.count }} | {{ color.confidence.value }} |
+{% endfor %}
+
+## Typography
+
+| Role | Family | Size | Weight | Line Height | Confidence |
+|------|--------|------|--------|-------------|------------|
+{% for t in design_system.typography %}
+| {{ t.role or 'Body' }} | {{ t.font_family }} | {{ t.font_size }} | {{ t.font_weight }} | {{ t.line_height }} | {{ t.confidence.value }} |
+{% endfor %}
+
+## Spacing
+
+{% if design_system.spacing %}
+{% for key, val in design_system.spacing.items() %}
+- **{{ key }}:** {{ val }}
+{% endfor %}
+{% else %}
+Not fully observed.
+{% endif %}
+
+## Grid
+
+{{ design_system.grid }}
+
+## Containers
+
+{{ design_system.containers }}
+
+## Border Radius
+
+{% for r in design_system.border_radius %}
+- {{ r }}
+{% else %}
+None observed
+{% endfor %}
+
+## Shadows
+
+{% for s in design_system.shadows %}
+- {{ s[:100] }}
+{% else %}
+None observed
+{% endfor %}
+
+## Gradients
+
+{% for g in design_system.gradients %}
+- {{ g[:100] }}
+{% else %}
+None observed
+{% endfor %}
+
+## Responsive Tokens
+
+See RESPONSIVE-SPEC.md for breakpoint behavior.

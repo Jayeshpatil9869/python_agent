@@ -1,0 +1,44 @@
+# Responsive Specification
+
+**URL:** {{ website.url }}
+
+## Viewports Tested
+
+{% set all_responsive = [] %}
+{% for p in pages %}{% for r in p.responsive %}{% if all_responsive.append(r) %}{% endif %}{% endfor %}{% endfor %}
+
+{{ all_responsive|map(attribute='width')|list|sort }}
+
+{% if not all_responsive %}
+**STATUS:** No viewport evidence collected. Responsive analyzer may have failed or been skipped.
+{% endif %}
+
+## Responsive Matrix
+
+{% set all_responsive = [] %}
+{% for p in pages %}{% for r in p.responsive %}{% if all_responsive.append(r) %}{% endif %}{% endfor %}{% endfor %}
+
+| Width | DOM Width | DOM Height | Navigation | Notes |
+|-------|-----------|------------|------------|-------|
+{% for r in all_responsive %}
+| {{ r.width }} | {{ r.dom_width }} | {{ r.dom_height }} | {{ r.navigation_state }} | {{ r.notes|join('; ') }} |
+{% endfor %}
+
+## Behavioral Changes
+
+{% for p in pages %}
+{% for r in p.responsive %}
+### {{ r.width }}px
+
+- Screenshot: `{{ r.screenshot }}`
+- H1 font size: {{ r.element_snapshots.get('h1_font_size', 'N/A') }}
+- Horizontal scroll: {{ r.element_snapshots.get('horizontal_scroll', false) }}
+
+{% endfor %}
+{% endfor %}
+
+## Screenshots
+
+- `screenshots/desktop/full.png`
+- `screenshots/tablet/full.png`
+- `screenshots/mobile/full.png`

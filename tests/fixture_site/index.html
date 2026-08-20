@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fixture Site — Home</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="about.html">About</a>
+      <a href="responsive.html">Responsive</a>
+      <a href="interactions.html">Interactions</a>
+      <a href="animations.html">Animations</a>
+      <a href="scroll.html">Scroll</a>
+    </nav>
+    <button id="menu-toggle" aria-expanded="false" aria-controls="mobile-menu">Menu</button>
+    <div id="mobile-menu" class="mobile-menu hidden">
+      <a href="about.html">About</a>
+      <a href="responsive.html">Responsive</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1 class="hero-title">Fixture Intelligence Site</h1>
+      <p class="hero-text">Deterministic test website for the analysis agent.</p>
+      <a class="btn cta" href="about.html">Learn More</a>
+    </section>
+
+    <section class="grid-section">
+      <article class="card">Card One</article>
+      <article class="card">Card Two</article>
+    </section>
+  </main>
+
+  <footer>Fixture Site © 2026</footer>
+  <script>
+    document.getElementById('menu-toggle').addEventListener('click', function () {
+      const menu = document.getElementById('mobile-menu');
+      const open = !menu.classList.contains('hidden');
+      menu.classList.toggle('hidden', open);
+      this.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+  </script>
+</body>
+</html>

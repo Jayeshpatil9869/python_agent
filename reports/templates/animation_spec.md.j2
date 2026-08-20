@@ -1,0 +1,34 @@
+# Animation Specification
+
+**URL:** {{ website.url }}
+
+{% for p in pages %}
+{% for anim in p.animations %}
+## Animation: {{ anim.element }}
+
+**Trigger:** {{ anim.trigger or 'Unknown' }}  
+**Property:** {{ anim.property or 'N/A' }}  
+**Duration:** {{ anim.duration or 'Unknown' }}  
+**Easing:** {{ anim.easing or 'Unknown' }}  
+**Confidence:** {{ anim.confidence.value }}
+
+**Initial State:**
+```
+{{ anim.initial_state }}
+```
+
+**Final State:**
+```
+{{ anim.final_state }}
+```
+
+**Evidence:** {{ anim.evidence|join(', ') }}
+
+---
+
+{% endfor %}
+{% endfor %}
+
+{% if not pages or not pages[0].animations %}
+No CSS animations or transitions observed. Run with `--deep` or `--animations` for deeper analysis.
+{% endif %}

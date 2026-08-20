@@ -1,0 +1,11 @@
+# Interaction Map
+
+**URL:** {{ website.url }}
+
+| Element | Trigger | Behavior | Animation | Mobile | Confidence |
+|---------|---------|----------|-----------|--------|------------|
+{% for p in pages %}
+{% for i in p.interactions %}
+| {{ i.element[:50] }} | {{ i.trigger }} | {{ i.behavior[:60] }} | {{ i.animation[:40] }} | {{ i.mobile }} | {{ i.confidence.value }} |
+{% endfor %}
+{% endfor %}

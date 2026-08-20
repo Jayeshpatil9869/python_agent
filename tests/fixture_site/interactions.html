@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactions — Fixture Site</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="site-header"><nav><a href="index.html">Home</a></nav></header>
+  <main>
+    <button class="btn hover-btn">Hover Me</button>
+
+    <details class="accordion">
+      <summary>Accordion Item</summary>
+      <p>Accordion content revealed on click.</p>
+    </details>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" id="tab-a" aria-controls="panel-a">Tab A</button>
+      <button role="tab" aria-selected="false" id="tab-b" aria-controls="panel-b">Tab B</button>
+    </div>
+    <div id="panel-a" role="tabpanel">Panel A content</div>
+    <div id="panel-b" role="tabpanel" hidden>Panel B content</div>
+
+    <button id="menu-btn" aria-expanded="false" aria-controls="nav-panel">Open Menu</button>
+    <div id="nav-panel" class="nav-panel hidden">Menu links</div>
+  </main>
+  <script>
+    document.querySelectorAll('[role="tab"]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('[role="tab"]').forEach(t => t.setAttribute('aria-selected', 'false'));
+        tab.setAttribute('aria-selected', 'true');
+        document.getElementById('panel-a').hidden = tab.id !== 'tab-a';
+        document.getElementById('panel-b').hidden = tab.id !== 'tab-b';
+      });
+    });
+    document.getElementById('menu-btn').addEventListener('click', function () {
+      const panel = document.getElementById('nav-panel');
+      const open = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !open);
+      this.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  </script>
+</body>
+</html>

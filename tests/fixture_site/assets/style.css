@@ -1,0 +1,116 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  color: #111;
+  background: #fafafa;
+}
+
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+}
+
+nav a { margin-right: 1rem; color: #111; text-decoration: none; }
+
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding: 4rem 2rem;
+  min-height: 60vh;
+  align-items: center;
+}
+
+.hero-title { font-size: 3rem; }
+
+.btn, .cta, .hover-btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #111;
+  background: transparent;
+  color: #111;
+  cursor: pointer;
+  transition: background 0.3s, color 0.3s, transform 0.2s;
+}
+
+.btn:hover, .cta:hover, .hover-btn:hover {
+  background: #111;
+  color: #fff;
+  transform: scale(1.03);
+}
+
+.grid-section, .responsive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  padding: 2rem;
+}
+
+.card, .col {
+  padding: 2rem;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.mobile-menu, .nav-panel, .hidden { display: none; }
+
+#menu-toggle, #menu-btn { display: none; }
+
+@media (max-width: 768px) {
+  .hero { grid-template-columns: 1fr; text-align: center; }
+  .hero-title { font-size: 2rem; }
+  .grid-section, .responsive-grid { grid-template-columns: 1fr; }
+  nav { display: none; }
+  #menu-toggle, #menu-btn { display: inline-block; }
+  .mobile-menu:not(.hidden), .nav-panel:not(.hidden) { display: block; padding: 1rem; }
+}
+
+.animate-title {
+  animation: fadeUp 0.8s ease forwards;
+  opacity: 0;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.transition-box {
+  margin: 2rem;
+  padding: 2rem;
+  background: #eee;
+  transition: transform 0.4s ease;
+}
+
+.transition-box:hover { transform: scale(1.05); }
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 1rem 2rem;
+  background: #fff;
+  border-bottom: 1px solid #ccc;
+}
+
+.parallax-block {
+  height: 300px;
+  margin: 4rem 2rem;
+  background: #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.accordion { margin: 2rem; }
+.accordion summary { cursor: pointer; font-weight: 600; }
+.tabs { display: flex; gap: 0.5rem; margin: 2rem; }
+[role="tab"] { padding: 0.5rem 1rem; cursor: pointer; }
+[role="tab"][aria-selected="true"] { background: #111; color: #fff; }
