@@ -56,9 +56,15 @@ class WebsiteAnalysisAgent:
             "screenshots/desktop",
             "screenshots/tablet",
             "screenshots/mobile",
+            "screenshots/scroll",
             "runtime/interactions",
             "runtime/animations",
             "runtime/scroll",
+            "runtime/preloader",
+            "runtime/page-load",
+            "runtime/cursor",
+            "runtime/transitions",
+            "runtime/responsive",
             "data",
         ):
             ensure_dir(self.output_dir / sub)
@@ -136,6 +142,12 @@ class WebsiteAnalysisAgent:
                 else:
                     progress.advance(task)
 
+                progress.update(task, description=STAGES[10])
+                self._save_json(intelligence)
+                generator = ReportGenerator(intelligence, self.output_dir)
+                generator.generate_all()
+                progress.advance(task)
+
                 progress.update(task, description=STAGES[9])
                 validation = validate_analysis_output(
                     self.output_dir,
@@ -143,12 +155,8 @@ class WebsiteAnalysisAgent:
                 )
                 intelligence.analysis_status = validation["overall_status"]
                 intelligence.stage_results["validation"] = validation
-                progress.advance(task)
-
-                progress.update(task, description=STAGES[10])
+                # Persist validation status into website.json
                 self._save_json(intelligence)
-                generator = ReportGenerator(intelligence, self.output_dir)
-                generator.generate_all()
                 progress.advance(task)
 
                 progress.update(task, description=STAGES[11])
@@ -207,7 +215,10 @@ class WebsiteAnalysisAgent:
             f"Motion: {animation_count} animations",
             f"Technology: {len(tech_detected)} detected/high-confidence",
             f"AI: {ai_status}",
-            f"Reports: 8 generated",
+            f"Reports: 10 generated",
+            f"Preloader: {'OBSERVED' if intelligence.motion_intelligence.preloader.observed else 'NOT_OBSERVED'}",
+            f"Motion findings: {len(intelligence.motion_intelligence.scrolltrigger_analysis)}",
+            f"GSAP: {intelligence.motion_intelligence.gsap_status}",
             f"Validation: {validation.get('overall_status', intelligence.analysis_status)}",
         ])
         for failure in validation.get("failures", []):
@@ -257,5 +268,30 @@ class WebsiteAnalysisAgent:
             scroll_data = [o for p in intelligence.pages for o in p.scroll_observations]
             if scroll_data:
                 write_json(data_dir / "scroll.json", scroll_data)
+
+            write_json(
+                data_dir / "design.json",
+                intelligence.design_intelligence.model_dump(mode="json"),
+            )
+            write_json(
+                data_dir / "colors.json",
+                intelligence.design_intelligence.color_system,
+            )
+            write_json(
+                data_dir / "typography.json",
+                intelligence.design_intelligence.typography_hierarchy,
+            )
+            if intelligence.pages:
+                primary = intelligence.pages[0]
+                write_json(data_dir / "preloader.json", primary.preloader.model_dump(mode="json"))
+                write_json(data_dir / "page_load.json", primary.page_load.model_dump(mode="json"))
+                write_json(
+                    data_dir / "transitions.json",
+                    [t.model_dump(mode="json") for t in primary.page_transitions],
+                )
+            write_json(
+                data_dir / "motion.json",
+                intelligence.motion_intelligence.model_dump(mode="json"),
+            )
 
         self.logger.info("JSON data saved to %s", data_dir)

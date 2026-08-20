@@ -9,14 +9,37 @@
 <body>
   <header class="sticky-header">Sticky Header</header>
   <main class="scroll-main">
-    <section class="hero"><h1>Scroll Test</h1></section>
+    <section class="hero"><h1 class="hero-title">Scroll Test</h1></section>
     <section class="parallax-block" data-parallax>Parallax-like block</section>
-    <section style="height: 200vh;">Long scroll content</section>
+    <section class="pin-section">
+      <div class="pin-inner">Pinned content zone</div>
+    </section>
+    <section class="horizontal-section">
+      <div class="horizontal-track">
+        <div class="h-card">H1</div>
+        <div class="h-card">H2</div>
+        <div class="h-card">H3</div>
+        <div class="h-card">H4</div>
+      </div>
+    </section>
+    <section class="reveal-image">
+      <img class="mask-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='240'%3E%3Crect fill='%23ccc' width='400' height='240'/%3E%3C/svg%3E" alt="reveal">
+    </section>
+    <section style="height: 120vh;">Long scroll content</section>
   </main>
+  <script src="assets/motion.js"></script>
   <script>
     window.addEventListener('scroll', () => {
       const el = document.querySelector('[data-parallax]');
       if (el) el.style.transform = `translateY(${window.scrollY * -0.3}px)`;
+      const track = document.querySelector('.horizontal-track');
+      if (track) track.style.transform = `translateX(${-window.scrollY * 0.5}px)`;
+      const img = document.querySelector('.mask-img');
+      if (img) {
+        const progress = Math.min(1, Math.max(0, (window.scrollY - 800) / 400));
+        img.style.clipPath = `inset(0 ${(1 - progress) * 100}% 0 0)`;
+        img.style.transform = `scale(${1 + progress * 0.1})`;
+      }
     });
   </script>
 </body>

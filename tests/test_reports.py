@@ -24,8 +24,12 @@ def test_report_generation(tmp_path):
 
     assert (tmp_path / "WEBSITE-ANALYSIS.md").exists()
     assert (tmp_path / "DESIGN-SYSTEM.md").exists()
+    assert (tmp_path / "DESIGN-INTELLIGENCE.md").exists()
+    assert (tmp_path / "MOTION-INTELLIGENCE.md").exists()
     assert (tmp_path / "TECHNOLOGY-REPORT.md").exists()
     assert (tmp_path / "RECONSTRUCTION-PROMPT.md").exists()
 
     content = (tmp_path / "WEBSITE-ANALYSIS.md").read_text(encoding="utf-8")
     assert "example.com" in content
+    motion = (tmp_path / "MOTION-INTELLIGENCE.md").read_text(encoding="utf-8")
+    assert "Motion Summary" in motion

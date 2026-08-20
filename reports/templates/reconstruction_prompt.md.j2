@@ -4,38 +4,75 @@
 # Reconstruction Prompt
 
 ## Role
-Senior frontend architect and creative technologist.
+Senior frontend architect + motion designer recreating an ORIGINAL experience inspired by principles observed at {{ website.url }}.
 
 ## Objective
-Build an ORIGINAL website inspired by design principles observed at {{ website.url }}.
+Rebuild the **underlying experience system** (design + motion + interaction), not a clone.
 
 ## Do Not Copy
-- logos
-- proprietary text
-- exact imagery
+- logos, brand names, proprietary copy
+- exact images/videos/artwork
 - trademarks
-- proprietary assets
 
-## Design Principles (Observed)
-
+## Design System (Observed)
 ### Colors
-{% for c in design_system.colors[:8] %}
-- {{ c.role }}: {{ c.value }}
+{% for c in design_system.colors[:10] %}
+- {{ c.role }}: `{{ c.value }}`
 {% endfor %}
 
 ### Typography
-{% for t in design_system.typography[:6] %}
-- {{ t.role }}: {{ t.font_family }} at {{ t.font_size }}
+{% for t in design_system.typography[:8] %}
+- {{ t.role }}: {{ t.font_family }} {{ t.font_size }} / {{ t.font_weight }}
 {% endfor %}
+
+## Motion System (Evidence-Backed)
+{% if motion %}
+- Personality: {{ motion.motion_personality|join(', ') }}
+- Preloader: {{ motion.preloader.type }} (observed={{ motion.preloader.observed }})
+- Hero: {{ motion.hero_animation }}
+- GSAP: {{ motion.gsap_status }} | ScrollTrigger: {{ motion.scrolltrigger_status }}
+- Parallax findings: {{ motion.parallax|length }}
+- Pin findings: {{ motion.pinning|length }}
+- Horizontal scroll findings: {{ motion.horizontal_scroll|length }}
+- Custom cursor: {{ motion.cursor.custom_cursor }}
+{% endif %}
+
+## Implementation Guidance
+Only implement techniques supported by observed behavior:
+
+{% if motion and motion.preloader.observed %}
+- Gate the experience with a preloader matching observed type: {{ motion.preloader.type }}
+{% endif %}
+{% if motion and motion.hero_animation.status == 'OBSERVED' %}
+- Timeline-based hero reveal (opacity/transform) after load
+{% endif %}
+{% if motion and motion.scrolltrigger_analysis %}
+- Scroll-triggered section reveals with scrub where OBSERVED
+{% endif %}
+{% if motion and motion.parallax %}
+- Differential parallax on media layers where OBSERVED
+{% endif %}
+{% if motion and motion.pinning %}
+- Pinned/sticky section behavior where OBSERVED
+{% endif %}
+{% if motion and motion.horizontal_scroll %}
+- Vertical-to-horizontal gallery section where OBSERVED
+{% endif %}
+{% if motion and motion.cursor.custom_cursor %}
+- Custom cursor / follower interaction on desktop; disable on touch
+{% endif %}
 
 ### Technology Clues
 {% for tech in technologies %}
-- {{ tech.name }} ({{ tech.confidence_level.value }})
+- {{ tech.name }} ({{ tech.status }}, confidence={{ tech.confidence }})
 {% endfor %}
 
-## Implementation Requirements
-- Semantic HTML5
-- Component-based architecture
-- Mobile-first responsive design
-- Document confidence levels for all inferences
+## Mobile
+{% if motion %}
+{{ motion.mobile_motion }}
+{% endif %}
+Simplify parallax/cursor on mobile; preserve primary reveal choreography if observed.
+
+## Confidence Discipline
+Mark every inferred duration/easing as ESTIMATED or UNKNOWN unless runtime evidence supports OBSERVED.
 {% endif %}

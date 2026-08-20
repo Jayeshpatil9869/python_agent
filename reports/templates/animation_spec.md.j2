@@ -2,15 +2,33 @@
 
 **URL:** {{ website.url }}
 
+Technical animation records derived from CSS + runtime observation.
+
+{% if motion %}
+## Library Evidence
+- GSAP: {{ motion.gsap_status }}
+- ScrollTrigger: {{ motion.scrolltrigger_status }}
+{% endif %}
+
 {% for p in pages %}
 {% for anim in p.animations %}
 ## Animation: {{ anim.element }}
 
-**Trigger:** {{ anim.trigger or 'Unknown' }}  
-**Property:** {{ anim.property or 'N/A' }}  
-**Duration:** {{ anim.duration or 'Unknown' }}  
-**Easing:** {{ anim.easing or 'Unknown' }}  
-**Confidence:** {{ anim.confidence.value }}
+| Field | Value |
+|-------|-------|
+| Trigger | {{ anim.trigger or 'Unknown' }} |
+| Classification | {{ anim.classification or anim.direction or 'N/A' }} |
+| Property | {{ anim.property or 'N/A' }} |
+| Duration | {{ anim.duration or 'UNKNOWN' }} |
+| Delay | {{ anim.delay or 'UNKNOWN' }} |
+| Easing | {{ anim.easing or 'UNKNOWN' }} |
+| Scroll Start | {{ anim.scroll_start or 'N/A' }} |
+| Scroll End | {{ anim.scroll_end or 'N/A' }} |
+| Scrub | {{ anim.scrub or 'UNKNOWN' }} |
+| Pin | {{ anim.pin or 'UNKNOWN' }} |
+| Stagger | {{ anim.stagger or 'UNKNOWN' }} |
+| Mobile Behavior | {{ anim.mobile_behavior or 'UNKNOWN' }} |
+| Confidence | {{ anim.confidence.value }} |
 
 **Initial State:**
 ```
@@ -22,12 +40,26 @@
 {{ anim.final_state }}
 ```
 
-**Evidence:** {{ anim.evidence|join(', ') }}
+**Runtime Evidence:** {{ anim.evidence|join(', ') }}  
+**Library Evidence:** {{ anim.library_evidence|join(', ') if anim.library_evidence else 'none' }}
 
 ---
 
 {% endfor %}
 {% endfor %}
+
+{% if motion and motion.scrolltrigger_analysis %}
+## Scroll-Linked Specs
+
+{% for f in motion.scrolltrigger_analysis %}
+### {{ f.element }} — {{ f.classification }}
+- Scroll range: {{ f.scroll_start }} → {{ f.scroll_end }}
+- Scrub: {{ f.scrub }} | Pin: {{ f.pin }}
+- Property changes: {{ f.property_changes }}
+- Confidence: {{ f.confidence.value }}
+- Evidence: {{ f.evidence|join(', ') }}
+{% endfor %}
+{% endif %}
 
 {% if not pages or not pages[0].animations %}
 No CSS animations or transitions observed. Run with `--deep` or `--animations` for deeper analysis.

@@ -21,7 +21,9 @@ class ReportGenerator:
     def generate_all(self) -> None:
         reports = {
             "WEBSITE-ANALYSIS.md": "website_analysis.md.j2",
+            "DESIGN-INTELLIGENCE.md": "design_intelligence.md.j2",
             "DESIGN-SYSTEM.md": "design_system.md.j2",
+            "MOTION-INTELLIGENCE.md": "motion_intelligence.md.j2",
             "RESPONSIVE-SPEC.md": "responsive_spec.md.j2",
             "ANIMATION-SPEC.md": "animation_spec.md.j2",
             "INTERACTION-MAP.md": "interaction_map.md.j2",
@@ -45,6 +47,8 @@ class ReportGenerator:
             "page": page,
             "pages": self.intelligence.pages,
             "design_system": self.intelligence.design_system,
+            "design": self.intelligence.design_intelligence,
+            "motion": self.intelligence.motion_intelligence,
             "technologies": self.intelligence.technologies,
             "ai": self.intelligence.ai_interpretation,
         }

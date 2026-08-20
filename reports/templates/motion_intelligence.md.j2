@@ -1,0 +1,213 @@
+# Motion Intelligence Report
+
+**URL:** {{ website.url }}  
+**Label:** Experience forensics - evidence-first motion analysis
+
+## Motion Summary
+
+{{ motion.motion_summary }}
+
+## Motion Personality
+
+{% for p in motion.motion_personality %}
+- {{ p }}
+{% else %}
+- UNKNOWN
+{% endfor %}
+
+## Preloader
+
+- **Observed:** {{ motion.preloader.observed }}
+- **Type:** {{ motion.preloader.type }}
+- **Duration:** {{ motion.preloader.duration_ms or 'UNKNOWN' }} ({{ motion.preloader.duration_status }})
+- **Progress:** {{ motion.preloader.progress_behavior }}
+- **Exit:** {{ motion.preloader.exit_animation }}
+- **Confidence:** {{ motion.preloader.confidence.value }}
+- **Evidence:** {{ motion.preloader.evidence|join(', ') }}
+
+{% if motion.preloader.timeline %}
+### Preloader Timeline
+{% for step in motion.preloader.timeline %}
+- t={{ step.t }}ms — overlays={{ step.overlays if step.overlays is defined else step.get('overlays', 'n/a') }}{% if step.pct %} pct={{ step.pct }}{% endif %}
+{% endfor %}
+{% endif %}
+
+## Page Load Timeline
+
+- **Duration status:** {{ motion.page_load.duration_status }}
+- **Total window:** {{ motion.page_load.total_duration_ms or 'UNKNOWN' }}ms
+- **Evidence:** {{ motion.page_load.evidence|join(', ') }}
+
+{% for phase in motion.page_load.phases[:12] %}
+- t={{ phase.t }}ms — ready={{ phase.readyState }} h1_opacity={{ phase.h1_opacity }} nav_opacity={{ phase.nav_opacity }}
+{% endfor %}
+
+## Hero Animation
+
+```
+{{ motion.hero_animation }}
+```
+
+## Navigation Animation
+
+```
+{{ motion.navigation_animation }}
+```
+
+## Scroll System
+
+```
+{{ motion.scroll_system }}
+```
+
+## ScrollTrigger Analysis
+
+{% for f in motion.scrolltrigger_analysis %}
+### {{ f.element }} — {{ f.classification }}
+- Scroll: {{ f.scroll_start }} → {{ f.scroll_end }}
+- Scrub: {{ f.scrub }} | Pin: {{ f.pin }}
+- Properties: {{ f.property_changes }}
+- Confidence: {{ f.confidence.value }}
+- Evidence: {{ f.evidence|join(', ') }}
+
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Parallax
+
+{% for f in motion.parallax %}
+- **{{ f.element }}** ratio={{ f.parallax_ratio }} ({{ f.confidence.value }})
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Pinning
+
+{% for f in motion.pinning %}
+- **{{ f.element }}** pin={{ f.pin }} scroll {{ f.scroll_start }}→{{ f.scroll_end }} ({{ f.confidence.value }})
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Horizontal Scroll
+
+{% for f in motion.horizontal_scroll %}
+- **{{ f.element }}** {{ f.property_changes }} ({{ f.confidence.value }})
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Text Animation
+
+{% for t in motion.text_animation %}
+- **{{ t.element }}** — {{ t.classification }} ({{ t.confidence }}) trigger={{ t.trigger }}
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Image Animation
+
+{% for t in motion.image_animation %}
+- **{{ t.element }}** — {{ t.classification }} ({{ t.confidence }})
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Video Animation
+
+{% for t in motion.video_animation %}
+- {{ t }}
+{% endfor %}
+
+## Hover Motion
+
+{% for h in motion.hover_motion[:15] %}
+- **{{ h.element }}** ({{ h.trigger }}): {{ h.behavior }} — {{ h.confidence }}
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Cursor
+
+- **Custom cursor:** {{ motion.cursor.custom_cursor }}
+- **Type:** {{ motion.cursor.cursor_type }}
+- **Magnetic:** {{ motion.cursor.magnetic }}
+- **Confidence:** {{ motion.cursor.confidence.value }}
+- **Details:** {{ motion.cursor.details }}
+- **Evidence:** {{ motion.cursor.evidence|join(', ') }}
+
+## Magnetic Interactions
+
+{% for m in motion.magnetic_interactions %}
+- {{ m }}
+{% endfor %}
+
+## Micro-interactions
+
+{% for m in motion.micro_interactions[:20] %}
+- **{{ m.element }}** [{{ m.trigger }}] {{ m.behavior }} ({{ m.confidence }})
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Section Transitions
+
+{% for s in motion.section_transitions %}
+- scroll {{ s.from_scroll }}→{{ s.to_scroll }}: `{{ s.from_color }}` → `{{ s.to_color }}` ({{ s.type }}, {{ s.confidence }})
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Page Transitions
+
+{% for t in motion.page_transitions %}
+- **{{ t.type }}** observed={{ t.observed }} {{ t.from_url }} → {{ t.to_url }} ({{ t.confidence.value }})
+  sequence: {{ t.sequence|join(' → ') }}
+  evidence: {{ t.evidence|join(', ') }}
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Mobile Motion
+
+```
+{{ motion.mobile_motion }}
+```
+
+## Motion Hierarchy
+
+{% for level, items in motion.motion_hierarchy.items() %}
+### {{ level }}
+{% for item in items %}
+- {{ item }}
+{% endfor %}
+{% endfor %}
+
+## Complete Timeline
+
+{% for e in motion.complete_timeline %}
+- **{{ e.phase }}** — {{ e.detail }}{% if e.scroll_start is defined %} (scroll {{ e.scroll_start }}→{{ e.scroll_end }}){% endif %} [{{ e.confidence }}]
+{% endfor %}
+
+## Library Status
+
+- **GSAP:** {{ motion.gsap_status }}
+- **ScrollTrigger:** {{ motion.scrolltrigger_status }}
+
+## Motion Implementation Hypotheses
+
+{% for h in motion.implementation_hypotheses %}
+- {{ h }}
+{% endfor %}
+
+## Evidence & Confidence
+
+Overall motion confidence: **{{ motion.confidence.value }}**
+
+Evidence files:
+{% for e in motion.evidence %}
+- {{ e }}
+{% endfor %}
+
+> Durations and easing are marked ESTIMATED/UNKNOWN unless runtime samples support OBSERVED values. AI interpretation must not override these statuses.

@@ -7,6 +7,13 @@
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+  <div id="preloader" class="preloader" aria-busy="true">
+    <div class="preloader-logo">FIXTURE</div>
+    <div class="preloader-pct" id="preloader-pct">0%</div>
+  </div>
+
+  <div id="cursor" class="custom-cursor"></div>
+
   <header class="site-header">
     <nav>
       <a href="index.html">Home</a>
@@ -27,23 +34,21 @@
     <section class="hero">
       <h1 class="hero-title">Fixture Intelligence Site</h1>
       <p class="hero-text">Deterministic test website for the analysis agent.</p>
-      <a class="btn cta" href="about.html">Learn More</a>
+      <a class="btn cta" href="about.html" data-magnetic>Learn More</a>
     </section>
 
     <section class="grid-section">
       <article class="card">Card One</article>
       <article class="card">Card Two</article>
     </section>
+
+    <section class="color-shift dark-section">
+      <h2>Dark Section</h2>
+      <p>Background shifts for color-transition detection.</p>
+    </section>
   </main>
 
   <footer>Fixture Site © 2026</footer>
-  <script>
-    document.getElementById('menu-toggle').addEventListener('click', function () {
-      const menu = document.getElementById('mobile-menu');
-      const open = !menu.classList.contains('hidden');
-      menu.classList.toggle('hidden', open);
-      this.setAttribute('aria-expanded', open ? 'false' : 'true');
-    });
-  </script>
+  <script src="assets/motion.js"></script>
 </body>
 </html>

@@ -4,6 +4,8 @@ from collections import Counter
 from typing import Any
 
 from intelligence.confidence import ConfidenceLevel
+from intelligence.design_intelligence import build_design_intelligence
+from intelligence.motion_intelligence import build_motion_intelligence
 from intelligence.schema import (
     ColorToken,
     DesignSystem,
@@ -101,5 +103,10 @@ def normalize_website_intelligence(website: WebsiteIntelligence) -> WebsiteIntel
     website.motion_system = {
         "animation_count": sum(len(p.animations) for p in website.pages),
         "interaction_count": sum(len(p.interactions) for p in website.pages),
+        "scroll_findings": sum(len(p.scroll_motion_findings) for p in website.pages),
+        "preloader_observed": any(p.preloader.observed for p in website.pages),
     }
+
+    website.motion_intelligence = build_motion_intelligence(website)
+    website.design_intelligence = build_design_intelligence(website)
     return website

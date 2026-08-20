@@ -67,7 +67,126 @@ class AnimationRecord(BaseModel):
     direction: str = ""
     viewport_dependency: str = ""
     mobile_behavior: str = ""
+    scroll_start: str = ""
+    scroll_end: str = ""
+    scrub: str = ""
+    pin: str = ""
+    stagger: str = ""
+    classification: str = ""
+    library_evidence: list[str] = Field(default_factory=list)
     confidence: ConfidenceLevel = ConfidenceLevel.UNKNOWN
+    evidence: list[str] = Field(default_factory=list)
+
+
+class PreloaderObservation(BaseModel):
+    observed: bool = False
+    confidence: ConfidenceLevel = ConfidenceLevel.UNKNOWN
+    type: str = "NOT_OBSERVED"
+    duration_ms: int | None = None
+    duration_status: str = "UNKNOWN"
+    initial_state: dict[str, Any] = Field(default_factory=dict)
+    progress_behavior: str = "UNKNOWN"
+    exit_animation: str = "UNKNOWN"
+    timeline: list[dict[str, Any]] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+
+
+class PageLoadTimeline(BaseModel):
+    phases: list[dict[str, Any]] = Field(default_factory=list)
+    hero_animation: dict[str, Any] = Field(default_factory=dict)
+    navigation_animation: dict[str, Any] = Field(default_factory=dict)
+    total_duration_ms: int | None = None
+    duration_status: str = "ESTIMATED"
+    evidence: list[str] = Field(default_factory=list)
+
+
+class ScrollMotionFinding(BaseModel):
+    element: str = ""
+    classification: str = ""
+    scroll_start: int | None = None
+    scroll_end: int | None = None
+    property_changes: dict[str, Any] = Field(default_factory=dict)
+    scrub: str = "UNKNOWN"
+    pin: str = "UNKNOWN"
+    parallax_ratio: float | None = None
+    confidence: ConfidenceLevel = ConfidenceLevel.UNKNOWN
+    evidence: list[str] = Field(default_factory=list)
+
+
+class ColorTransition(BaseModel):
+    from_scroll: int = 0
+    to_scroll: int = 0
+    from_color: str = ""
+    to_color: str = ""
+    transition_type: str = "UNKNOWN"
+    confidence: ConfidenceLevel = ConfidenceLevel.OBSERVED
+    evidence: list[str] = Field(default_factory=list)
+
+
+class CursorObservation(BaseModel):
+    custom_cursor: bool = False
+    cursor_type: str = "NOT_OBSERVED"
+    magnetic: bool = False
+    confidence: ConfidenceLevel = ConfidenceLevel.UNKNOWN
+    details: dict[str, Any] = Field(default_factory=dict)
+    evidence: list[str] = Field(default_factory=list)
+
+
+class TransitionObservation(BaseModel):
+    observed: bool = False
+    type: str = "NOT_OBSERVED"
+    from_url: str = ""
+    to_url: str = ""
+    sequence: list[str] = Field(default_factory=list)
+    confidence: ConfidenceLevel = ConfidenceLevel.UNKNOWN
+    evidence: list[str] = Field(default_factory=list)
+
+
+class DesignIntelligence(BaseModel):
+    design_direction: str = ""
+    color_system: dict[str, Any] = Field(default_factory=dict)
+    color_transitions: list[ColorTransition] = Field(default_factory=list)
+    typography_hierarchy: list[dict[str, Any]] = Field(default_factory=list)
+    layout_system: dict[str, Any] = Field(default_factory=dict)
+    image_language: dict[str, Any] = Field(default_factory=dict)
+    visual_effects: dict[str, Any] = Field(default_factory=dict)
+    section_rhythm: list[str] = Field(default_factory=list)
+    visual_hierarchy: list[str] = Field(default_factory=list)
+    design_patterns: list[str] = Field(default_factory=list)
+    design_motion_relationship: str = ""
+    experience_score: dict[str, Any] = Field(default_factory=dict)
+    confidence: ConfidenceLevel = ConfidenceLevel.INFERRED
+    evidence: list[str] = Field(default_factory=list)
+
+
+class MotionIntelligence(BaseModel):
+    motion_summary: str = ""
+    motion_personality: list[str] = Field(default_factory=list)
+    preloader: PreloaderObservation = Field(default_factory=PreloaderObservation)
+    page_load: PageLoadTimeline = Field(default_factory=PageLoadTimeline)
+    hero_animation: dict[str, Any] = Field(default_factory=dict)
+    navigation_animation: dict[str, Any] = Field(default_factory=dict)
+    scroll_system: dict[str, Any] = Field(default_factory=dict)
+    scrolltrigger_analysis: list[ScrollMotionFinding] = Field(default_factory=list)
+    parallax: list[ScrollMotionFinding] = Field(default_factory=list)
+    pinning: list[ScrollMotionFinding] = Field(default_factory=list)
+    horizontal_scroll: list[ScrollMotionFinding] = Field(default_factory=list)
+    text_animation: list[dict[str, Any]] = Field(default_factory=list)
+    image_animation: list[dict[str, Any]] = Field(default_factory=list)
+    video_animation: list[dict[str, Any]] = Field(default_factory=list)
+    hover_motion: list[dict[str, Any]] = Field(default_factory=list)
+    cursor: CursorObservation = Field(default_factory=CursorObservation)
+    magnetic_interactions: list[dict[str, Any]] = Field(default_factory=list)
+    micro_interactions: list[dict[str, Any]] = Field(default_factory=list)
+    section_transitions: list[dict[str, Any]] = Field(default_factory=list)
+    page_transitions: list[TransitionObservation] = Field(default_factory=list)
+    mobile_motion: dict[str, Any] = Field(default_factory=dict)
+    motion_hierarchy: dict[str, list[str]] = Field(default_factory=dict)
+    complete_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    gsap_status: str = "UNKNOWN"
+    scrolltrigger_status: str = "UNKNOWN"
+    implementation_hypotheses: list[str] = Field(default_factory=list)
+    confidence: ConfidenceLevel = ConfidenceLevel.INFERRED
     evidence: list[str] = Field(default_factory=list)
 
 
@@ -182,6 +301,12 @@ class PageAnalysis(BaseModel):
     technologies: list[TechnologyDetection] = Field(default_factory=list)
     screenshots: dict[str, str] = Field(default_factory=dict)
     scroll_observations: list[dict[str, Any]] = Field(default_factory=list)
+    preloader: PreloaderObservation = Field(default_factory=PreloaderObservation)
+    page_load: PageLoadTimeline = Field(default_factory=PageLoadTimeline)
+    cursor: CursorObservation = Field(default_factory=CursorObservation)
+    page_transitions: list[TransitionObservation] = Field(default_factory=list)
+    scroll_motion_findings: list[ScrollMotionFinding] = Field(default_factory=list)
+    color_transitions: list[ColorTransition] = Field(default_factory=list)
     stage_results: dict[str, Any] = Field(default_factory=dict)
     errors: list[str] = Field(default_factory=list)
 
@@ -194,6 +319,8 @@ class WebsiteIntelligence(BaseModel):
     crawl_pages: list[CrawlPageRecord] = Field(default_factory=list)
     sitemap_urls: list[str] = Field(default_factory=list)
     design_system: DesignSystem = Field(default_factory=DesignSystem)
+    design_intelligence: DesignIntelligence = Field(default_factory=DesignIntelligence)
+    motion_intelligence: MotionIntelligence = Field(default_factory=MotionIntelligence)
     technologies: list[TechnologyDetection] = Field(default_factory=list)
     motion_system: dict[str, Any] = Field(default_factory=dict)
     responsive_system: dict[str, Any] = Field(default_factory=dict)

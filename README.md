@@ -87,9 +87,10 @@ python main.py https://example.com \
 | `--timeout` | Page timeout in ms (default: 30000) |
 | `--headless` / `--no-headless` | Browser visibility |
 | `--browser` | chromium, firefox, or webkit |
-| `--deep` | Enable full responsive, scroll, hover, animation analysis |
-| `--animations` | Enable animation detection |
-| `--interactions` | Enable interaction/hover testing |
+| `--mobile` / `--no-mobile` | Include mobile viewports (default: on) |
+| `--desktop` / `--no-desktop` | Include desktop viewports (default: on) |
+| `--tablet` | Include tablet viewports (with `--deep`) |
+| `--deep` | Enable full responsive, scroll, interaction, animation analysis |
 | `--ai` | Enable AI interpretation |
 | `--output` | Output directory |
 | `--same-origin` | Restrict crawling to same domain |
@@ -115,11 +116,19 @@ output/
     └── data/
         ├── website.json
         ├── pages.json
+        ├── crawl.json
         ├── components.json
         ├── animations.json
         ├── interactions.json
         ├── responsive.json
-        └── technologies.json
+        ├── scroll.json
+        ├── technologies.json
+        └── validation.json
+    └── runtime/
+        ├── responsive/
+        ├── interactions/
+        ├── animations/
+        └── scroll/
 ```
 
 ## Environment Variables
@@ -158,15 +167,47 @@ Basic crawl, DOM/CSS analysis, technology detection, screenshots.
 
 Performs full browser observation laboratory:
 
-- 10 responsive viewports with DOM metrics and comparison
-- Scroll behavior observation (11 steps)
-- Interaction lab (hover before/after with evidence)
-- Runtime + CSS animation analysis
-- Technology detection with evidence scoring
+- Responsive viewports (mobile/tablet/desktop groups controlled by flags)
+- **Preloader** early-frame sampling + timeline
+- **Page-load** hero/nav choreography traces
+- Scroll-linked motion (parallax / pin / horizontal / scrub-like)
+- Color transitions across scroll
+- Interaction lab (hover, focus, safe click toggles)
+- Custom cursor / magnetic sampling
+- Safe page-transition probe
+- Runtime motion tracing + CSS animation analysis
+- Depth-aware BFS crawling with per-page depth metadata
+- Technology detection with weighted evidence scoring
+
+Primary reports for experience forensics:
+- `MOTION-INTELLIGENCE.md`
+- `DESIGN-INTELLIGENCE.md`
+- `ANIMATION-SPEC.md`
+- `RECONSTRUCTION-PROMPT.md`
 
 ```bash
+# Full matrix (mobile + desktop)
+python main.py https://example.com --deep
+
+# Mobile viewports only
+python main.py https://example.com --deep --mobile --no-desktop
+
+# Desktop viewports only
+python main.py https://example.com --deep --no-mobile --desktop
+
+# With AI motion interpretation
 python main.py https://example.com --deep --ai
 ```
+
+### Depth Crawling
+
+`--depth` controls BFS traversal:
+
+- `0` — starting URL only
+- `1` — seed + direct internal links
+- `2` — seed + links up to 2 hops
+
+Crawl results are saved to `data/crawl.json` with `url`, `depth`, `parent_url`, `discovery_source`, and `status`.
 
 ### Validation
 
@@ -176,11 +217,17 @@ After analysis, validate evidence:
 python validate_analysis.py output/example-com
 ```
 
-The validator distinguishes **analyzer failed** vs **no data detected**, and reports `COMPLETE` or `PARTIAL` status.
+The validator distinguishes **PASS**, **PARTIAL**, and **FAIL**:
+
+- **PASS** — requested stages executed, evidence consistent
+- **PARTIAL** — some stages failed or warnings present
+- **FAIL** — critical pipeline stages failed or evidence missing
+
+It also runs semantic linting on Markdown reports to flag unsupported claims (e.g., "definitely uses GSAP" without evidence).
 
 ### AI Mode (`--ai`)
 
-Adds design interpretation and enhanced reconstruction prompt. Requires at least one API key.
+Adds design interpretation and enhanced reconstruction prompt. Requires at least one API key. If all providers fail, technical analysis still completes with `AI: UNAVAILABLE`.
 
 **Default provider:** Gemini (`AI_PROVIDER=gemini`)
 
@@ -197,6 +244,8 @@ Only providers with a configured API key are attempted.
 ```bash
 pytest tests/ -v
 ```
+
+Includes unit tests plus E2E tests against `tests/fixture_site/` (deterministic HTML for crawl depth, responsive flags, interactions, animations, and validation).
 
 ## Limitations
 

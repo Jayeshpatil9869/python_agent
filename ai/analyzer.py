@@ -18,7 +18,7 @@ async def run_ai_analysis(
     output_dir: Path,
 ) -> dict[str, str]:
     summary = _build_evidence_summary(intelligence)
-    user_prompt = f"""Analyze this website intelligence data and provide structured interpretation.
+    user_prompt = f"""Analyze this website intelligence data as an Awwwards creative/motion lead.
 
 Website: {intelligence.url}
 Title: {intelligence.title}
@@ -26,14 +26,21 @@ Title: {intelligence.title}
 Evidence Summary:
 {summary}
 
-Provide sections:
-1. Executive Summary
-2. Design Direction
-3. Motion Design Analysis
-4. UX Patterns
-5. Rebuild Recommendations
+Answer with evidence-backed sections:
+1. Visual identity & color strategy
+2. Typography strategy
+3. Preloader & page-load choreography
+4. Hero & navigation motion
+5. Scroll system (scrub/pin/parallax/horizontal)
+6. Text/image/video reveals
+7. Hover / cursor / micro-interactions
+8. Page/section transitions
+9. Mobile motion divergence
+10. Motion personality & hierarchy
+11. Rebuild recommendations (original, not clone)
 
-Mark each finding with confidence level (DETECTED/OBSERVED/INFERRED/ESTIMATED/UNKNOWN).
+Mark each finding DETECTED/OBSERVED/INFERRED/ESTIMATED/UNKNOWN.
+Never invent GSAP, durations, or easing without evidence.
 """
 
     if settings.ai_provider == "none" and not _any_api_key(settings):
@@ -66,45 +73,68 @@ def _any_api_key(settings: Settings) -> bool:
 
 
 def _build_evidence_summary(intelligence: WebsiteIntelligence) -> str:
+    mi = intelligence.motion_intelligence
     data = {
         "pages_analyzed": len(intelligence.pages),
         "technologies": [t.model_dump() for t in intelligence.technologies[:10]],
         "colors": [c.model_dump() for c in intelligence.design_system.colors[:10]],
         "typography": [t.model_dump() for t in intelligence.design_system.typography[:8]],
-        "components": [
-            c.model_dump()
-            for p in intelligence.pages[:3]
-            for c in p.components[:5]
-        ],
+        "design_direction": intelligence.design_intelligence.design_direction,
+        "preloader": mi.preloader.model_dump(mode="json"),
+        "page_load_hero": mi.hero_animation,
+        "scroll_findings": [f.model_dump(mode="json") for f in mi.scrolltrigger_analysis[:12]],
+        "parallax": len(mi.parallax),
+        "pinning": len(mi.pinning),
+        "horizontal_scroll": len(mi.horizontal_scroll),
+        "cursor": mi.cursor.model_dump(mode="json"),
+        "gsap_status": mi.gsap_status,
+        "scrolltrigger_status": mi.scrolltrigger_status,
+        "motion_personality": mi.motion_personality,
         "animations_count": sum(len(p.animations) for p in intelligence.pages),
         "interactions_count": sum(len(p.interactions) for p in intelligence.pages),
     }
-    return json.dumps(data, indent=2, default=str)[:8000]
+    return json.dumps(data, indent=2, default=str)[:10000]
 
 
 def _build_reconstruction_prompt(intelligence: WebsiteIntelligence) -> str:
     ds = intelligence.design_system
-    colors = ", ".join(c.value for c in ds.colors[:6]) or "Not observed"
+    mi = intelligence.motion_intelligence
+    di = intelligence.design_intelligence
+    colors = ", ".join(f"{c.role}: {c.value}" for c in ds.colors[:8]) or "Not observed"
     typography = ", ".join(
         f"{t.role}: {t.font_family} {t.font_size}" for t in ds.typography[:6]
     ) or "Not observed"
-    components = ", ".join(
-        c.name for p in intelligence.pages[:2] for c in p.components
-    ) or "Not observed"
-    tech = ", ".join(t.name for t in intelligence.technologies[:8]) or "Unknown"
+    tech = ", ".join(f"{t.name} ({t.status})" for t in intelligence.technologies[:8]) or "Unknown"
 
     return RECONSTRUCTION_PROMPT_TEMPLATE.format(
-        design_direction="Modern, evidence-based design inferred from analysis",
+        design_direction=di.design_direction or "Evidence-based design inferred from analysis",
         layout=json.dumps(ds.grid or ds.containers or {}, default=str)[:500],
         typography=typography,
         colors=colors,
-        components=components,
-        responsive=json.dumps(intelligence.responsive_system, default=str),
-        animations=str(intelligence.motion_system),
-        interactions=f"{intelligence.motion_system.get('interaction_count', 0)} interactions observed",
+        motion=mi.motion_summary,
+        preloader=json.dumps(mi.preloader.model_dump(mode="json"), default=str)[:800],
+        page_load=json.dumps(mi.hero_animation, default=str)[:800],
+        scroll=json.dumps(
+            {
+                "findings": len(mi.scrolltrigger_analysis),
+                "parallax": len(mi.parallax),
+                "pinning": len(mi.pinning),
+                "horizontal": len(mi.horizontal_scroll),
+                "gsap": mi.gsap_status,
+                "scrolltrigger": mi.scrolltrigger_status,
+            },
+            default=str,
+        ),
+        interactions=json.dumps(
+            {
+                "hover_count": len(mi.hover_motion),
+                "cursor": mi.cursor.cursor_type,
+                "magnetic": mi.cursor.magnetic,
+            },
+            default=str,
+        ),
+        mobile=json.dumps(mi.mobile_motion, default=str)[:500],
         technology=tech,
-        performance="See performance data in JSON evidence",
-        accessibility="Follow WCAG guidelines; see accessibility audit",
     )
 
 

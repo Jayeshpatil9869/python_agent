@@ -1,0 +1,151 @@
+# Design Intelligence
+
+**URL:** {{ website.url }}
+
+## Design Direction
+
+{{ design.design_direction }}
+
+## Color System
+
+| Role | Value |
+|------|-------|
+| Background | `{{ design.color_system.background }}` |
+| Text | `{{ design.color_system.text }}` |
+| Primary | `{{ design.color_system.primary }}` |
+| Secondary | `{{ design.color_system.secondary }}` |
+| Accent | `{{ design.color_system.accent }}` |
+| Surface | `{{ design.color_system.surface }}` |
+| Muted | `{{ design.color_system.muted }}` |
+| Border | `{{ design.color_system.border }}` |
+
+### Observed Palette
+{% for c in design.color_system.observed_palette %}
+- **{{ c.role }}:** `{{ c.value }}` (count={{ c.count }})
+{% endfor %}
+
+## Color Transitions
+
+{% for t in design.color_transitions %}
+- scroll {{ t.from_scroll }}→{{ t.to_scroll }}: `{{ t.from_color }}` → `{{ t.to_color }}` ({{ t.transition_type }}, {{ t.confidence.value }})
+{% else %}
+NOT_OBSERVED
+{% endfor %}
+
+## Typography
+
+{% for t in design.typography_hierarchy %}
+### {{ t.role or 'text' }}
+- Family: {{ t.font_family }}
+- Size: {{ t.font_size }}
+- Weight: {{ t.font_weight }}
+- Line height: {{ t.line_height }}
+- Letter spacing: {{ t.letter_spacing }}
+- Confidence: {{ t.confidence }}
+{% else %}
+Insufficient typography samples.
+{% endfor %}
+
+## Typography Hierarchy
+
+{% for h in design.visual_hierarchy %}
+- {{ h }}
+{% endfor %}
+
+## Layout System
+
+```
+{{ design.layout_system }}
+```
+
+## Grid
+
+{{ design.layout_system.grid }}
+
+## Spacing
+
+{{ design.layout_system.spacing }}
+
+## Image Language
+
+```
+{{ design.image_language }}
+```
+
+## Visual Effects
+
+### Shadows
+{% for s in design.visual_effects.shadows %}
+- {{ s[:120] }}
+{% else %}
+None observed
+{% endfor %}
+
+### Gradients
+{% for g in design.visual_effects.gradients %}
+- {{ g[:120] }}
+{% else %}
+None observed
+{% endfor %}
+
+### Borders / Radius
+{% for r in design.visual_effects.border_radius %}
+- {{ r }}
+{% else %}
+None observed
+{% endfor %}
+
+## Glass / Blur
+
+Status based on computed styles in layout/CSS summaries — see DESIGN-SYSTEM.md for raw tokens. Explicit glassmorphism detection requires backdrop-filter evidence.
+
+## Composition
+
+{{ design.design_direction }}
+
+## Section Rhythm
+
+{% for r in design.section_rhythm %}
+- {{ r }}
+{% endfor %}
+
+## Visual Hierarchy
+
+{% for h in design.visual_hierarchy %}
+- {{ h }}
+{% endfor %}
+
+## Design Patterns
+
+{% for p in design.design_patterns %}
+- {{ p }}
+{% endfor %}
+
+## Design + Motion Relationship
+
+{{ design.design_motion_relationship }}
+
+## Design Intelligence Motion Score
+
+> Internal heuristic — **not** an official Awwwards rating.
+
+| Dimension | Score |
+|-----------|-------|
+| Visual Design | {{ design.experience_score.visual_design }}/20 |
+| Typography | {{ design.experience_score.typography }}/10 |
+| Motion | {{ design.experience_score.motion }}/20 |
+| Interaction | {{ design.experience_score.interaction }}/15 |
+| Scroll Experience | {{ design.experience_score.scroll_experience }}/15 |
+| Responsive Motion | {{ design.experience_score.responsive_motion }}/10 |
+| Originality Signals | {{ design.experience_score.originality_signals }}/10 |
+| **Total** | **{{ design.experience_score.total }}/100** |
+
+{{ design.experience_score.note }}
+
+## Evidence
+
+Confidence: **{{ design.confidence.value }}**
+
+{% for e in design.evidence %}
+- {{ e }}
+{% endfor %}

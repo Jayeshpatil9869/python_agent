@@ -112,9 +112,11 @@ def validate_analysis_output(
 
     reports = [
         "WEBSITE-ANALYSIS.md",
+        "DESIGN-INTELLIGENCE.md",
         "DESIGN-SYSTEM.md",
-        "RESPONSIVE-SPEC.md",
+        "MOTION-INTELLIGENCE.md",
         "ANIMATION-SPEC.md",
+        "RESPONSIVE-SPEC.md",
         "INTERACTION-MAP.md",
         "COMPONENT-MAP.md",
         "TECHNOLOGY-REPORT.md",
