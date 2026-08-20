@@ -22,10 +22,21 @@ SCROLL_SNAPSHOT_JS = """
         const r = el.getBoundingClientRect();
         const s = getComputedStyle(el);
         let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
         const m = s.transform.match(/matrix\\(([^)]+)\\)/);
         if (m) {
             const parts = m[1].split(',').map(Number);
             scale = Math.sqrt(parts[0] * parts[0] + parts[1] * parts[1]);
+            translateX = parts[4] || 0;
+            translateY = parts[5] || 0;
+        }
+        const parent = el.parentElement;
+        let parentScrollLeft = 0;
+        let overflowX = 'visible';
+        if (parent) {
+            parentScrollLeft = parent.scrollLeft || 0;
+            overflowX = getComputedStyle(parent).overflowX;
         }
         return {
             key: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') +
@@ -38,20 +49,44 @@ SCROLL_SNAPSHOT_JS = """
             transform: s.transform,
             opacity: s.opacity,
             scale: Math.round(scale * 1000) / 1000,
+            translateX: Math.round(translateX),
+            translateY: Math.round(translateY),
             clipPath: s.clipPath,
             filter: s.filter,
             position: s.position,
             backgroundColor: s.backgroundColor,
+            parentScrollLeft: parentScrollLeft,
+            parentOverflowX: overflowX,
         };
     });
     const sticky = Array.from(document.querySelectorAll('*')).filter(el => {
         const p = getComputedStyle(el).position;
         return (p === 'sticky' || p === 'fixed') && el.getBoundingClientRect().height > 40;
-    }).slice(0, 8).map(el => ({
-        key: el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''),
-        position: getComputedStyle(el).position,
-        top: Math.round(el.getBoundingClientRect().top),
-    }));
+    }).slice(0, 8).map(el => {
+        const r = el.getBoundingClientRect();
+        const s = getComputedStyle(el);
+        return {
+            key: 'sticky:' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') +
+                (el.className ? '.' + String(el.className).split(' ')[0] : ''),
+            tag: el.tagName.toLowerCase(),
+            top: Math.round(r.top),
+            left: Math.round(r.left),
+            width: Math.round(r.width),
+            height: Math.round(r.height),
+            transform: s.transform,
+            opacity: s.opacity,
+            scale: 1,
+            translateX: 0,
+            translateY: 0,
+            clipPath: s.clipPath,
+            filter: s.filter,
+            position: s.position,
+            backgroundColor: s.backgroundColor,
+            parentScrollLeft: 0,
+            parentOverflowX: 'visible',
+            stickyCandidate: true,
+        };
+    });
     return {
         scrollY: window.scrollY,
         bodyBg: getComputedStyle(document.body).backgroundColor,
@@ -122,8 +157,11 @@ async def observe_scroll(
             prev_bg = bg
             prev_scroll = snapshot.get("scrollY", scroll_y)
 
-            for el in snapshot.get("elements", []):
+            # Feed both tracked elements and sticky candidates into motion history
+            for el in list(snapshot.get("elements", [])) + list(snapshot.get("sticky", [])):
                 key = el.get("key", "")
+                if not key:
+                    continue
                 history.setdefault(key, []).append(
                     {
                         "scroll_y": snapshot.get("scrollY", scroll_y),
@@ -187,6 +225,8 @@ def _analyze_motion_history(
         scroll_deltas = []
         top_deltas = []
         left_deltas = []
+        translate_x_deltas = []
+        parent_scroll_left_deltas = []
         opacity_vals = []
         scale_vals = []
         clip_vals = []
@@ -198,6 +238,13 @@ def _analyze_motion_history(
             scroll_deltas.append(sd)
             top_deltas.append(samples[i]["top"] - samples[i - 1]["top"])
             left_deltas.append(samples[i]["left"] - samples[i - 1]["left"])
+            translate_x_deltas.append(
+                float(samples[i].get("translateX") or 0) - float(samples[i - 1].get("translateX") or 0)
+            )
+            parent_scroll_left_deltas.append(
+                float(samples[i].get("parentScrollLeft") or 0)
+                - float(samples[i - 1].get("parentScrollLeft") or 0)
+            )
             opacity_vals.append(float(samples[i].get("opacity") or 1))
             scale_vals.append(float(samples[i].get("scale") or 1))
             clip_vals.append(samples[i].get("clipPath") or "none")
@@ -208,30 +255,60 @@ def _analyze_motion_history(
         avg_scroll = sum(scroll_deltas) / len(scroll_deltas)
         avg_top = sum(top_deltas) / len(top_deltas)
         avg_left = sum(abs(x) for x in left_deltas) / len(left_deltas)
+        avg_tx = sum(abs(x) for x in translate_x_deltas) / len(translate_x_deltas) if translate_x_deltas else 0
+        avg_parent_sl = (
+            sum(abs(x) for x in parent_scroll_left_deltas) / len(parent_scroll_left_deltas)
+            if parent_scroll_left_deltas
+            else 0
+        )
         ratio = avg_top / avg_scroll if avg_scroll else 0
 
+        positions = {s.get("position") for s in samples}
         always_fixed = all(s.get("position") == "fixed" for s in samples)
-        always_sticky = all(s.get("position") == "sticky" for s in samples)
-        sticky_like = "sticky" in {s.get("position") for s in samples} or "fixed" in {
-            s.get("position") for s in samples
-        }
+        sticky_like = "sticky" in positions or "fixed" in positions
 
         top_variance = max(s["top"] for s in samples) - min(s["top"] for s in samples)
         scroll_range = samples[-1]["scroll_y"] - samples[0]["scroll_y"]
 
         # CSS fixed for entire page != ScrollTrigger pin
         css_fixed = always_fixed and top_variance < 8
-        # True pin/sticky section: sticky/fixed only part of range OR sticky with locked top mid-scroll
+
+        # Pin evidence: element stays visually stable while document continues scrolling
+        locked_frames = sum(
+            1 for i in range(1, len(samples)) if abs(samples[i]["top"] - samples[i - 1]["top"]) < 6
+        )
+        lock_ratio = locked_frames / max(1, len(samples) - 1)
         mid = samples[len(samples) // 2]
+        mid_sticky = mid.get("position") in ("sticky", "fixed")
         pinned_section = (
             not css_fixed
             and sticky_like
-            and scroll_range > viewport_height * 0.5
-            and top_variance < 50
-            and (mid.get("position") in ("sticky", "fixed"))
+            and scroll_range > viewport_height * 0.35
+            and (
+                (mid_sticky and top_variance < 80 and lock_ratio >= 0.35)
+                or (samples[0].get("stickyCandidate") and top_variance < 40 and scroll_range > 100)
+            )
         )
 
-        horizontal = avg_left > 30 and scroll_range > 150
+        # Horizontal scroll requires stronger evidence than left-box drift alone
+        tx_range = max((s.get("translateX") or 0) for s in samples) - min(
+            (s.get("translateX") or 0) for s in samples
+        )
+        parent_sl_range = max((s.get("parentScrollLeft") or 0) for s in samples) - min(
+            (s.get("parentScrollLeft") or 0) for s in samples
+        )
+        overflow_scroll = any(
+            (s.get("parentOverflowX") or "") in ("auto", "scroll", "overlay") for s in samples
+        )
+        horizontal = (
+            scroll_range > 150
+            and (
+                (avg_tx > 8 and abs(tx_range) > 40)
+                or (avg_parent_sl > 5 and abs(parent_sl_range) > 40)
+                or (overflow_scroll and avg_left > 40 and abs(tx_range) > 20)
+            )
+            and not (abs(ratio + 1.0) < 0.12 and abs(tx_range) < 20)
+        )
 
         # Normal document flow ≈ ratio -1.0; require differential movement for parallax
         normal_scroll = abs(ratio + 1.0) < 0.12
@@ -289,8 +366,12 @@ def _analyze_motion_history(
                     property_changes={
                         "avg_top_delta": round(avg_top, 2),
                         "avg_left_delta": round(avg_left, 2),
+                        "avg_translate_x_delta": round(avg_tx, 2),
+                        "translate_x_range": round(tx_range, 2),
+                        "parent_scroll_left_range": round(parent_sl_range, 2),
                         "parallax_ratio": round(ratio, 3),
                         "normal_scroll": normal_scroll,
+                        "lock_ratio": round(lock_ratio, 3),
                         "opacity_range": [min(opacity_vals), max(opacity_vals)] if opacity_vals else [],
                         "scale_range": [min(scale_vals), max(scale_vals)] if scale_vals else [],
                     },

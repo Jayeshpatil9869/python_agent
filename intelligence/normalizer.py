@@ -111,8 +111,22 @@ def normalize_website_intelligence(website: WebsiteIntelligence) -> WebsiteIntel
         "interaction_count": sum(len(p.interactions) for p in website.pages),
         "scroll_findings": sum(len(p.scroll_motion_findings) for p in website.pages),
         "preloader_observed": any(p.preloader.observed for p in website.pages),
+        "hover_count": sum(
+            1 for p in website.pages for i in p.interactions if i.trigger == "hover"
+        ),
+        "pages_with_interactions": sum(1 for p in website.pages if p.interactions),
     }
 
     website.motion_intelligence = build_motion_intelligence(website)
     website.design_intelligence = build_design_intelligence(website)
+
+    # Attach site-wide experience score onto design intelligence for report reuse
+    try:
+        from intelligence.experience_score import compute_experience_score
+
+        score = compute_experience_score(website)
+        website.design_intelligence.experience_score = score
+    except Exception:
+        pass
+
     return website

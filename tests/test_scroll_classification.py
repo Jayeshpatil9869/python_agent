@@ -43,11 +43,75 @@ def test_parallax_detected_when_ratio_differs():
     assert any(f.classification == "PARALLAX" for f in findings)
 
 
-def test_css_fixed_header_not_pinned():
-    history = _samples(
-        "header.fixed",
-        [(0, 0, "fixed"), (500, 0, "fixed"), (1000, 0, "fixed"), (2000, 0, "fixed")],
-    )
+def test_left_drift_alone_not_horizontal_scroll():
+    """Bounding-box left drift without translateX/scrollLeft must not be HORIZONTAL_SCROLL."""
+    history = {
+        "h1.title": [
+            {
+                "scroll_y": sy,
+                "pct": 0,
+                "key": "h1.title",
+                "top": 100 - sy,
+                "left": 20 + (sy // 50),  # drifts left as layout reflows
+                "opacity": "1",
+                "scale": 1.0,
+                "translateX": 0,
+                "parentScrollLeft": 0,
+                "parentOverflowX": "visible",
+                "clipPath": "none",
+                "position": "static",
+            }
+            for sy in (0, 400, 800, 1200, 1600)
+        ]
+    }
     findings = _analyze_motion_history(history, viewport_height=900)
-    assert any(f.classification == "CSS_FIXED" for f in findings)
-    assert not any(f.classification == "PINNED" for f in findings)
+    assert not any(f.classification == "HORIZONTAL_SCROLL" for f in findings)
+
+
+def test_translate_x_scrub_is_horizontal_scroll():
+    history = {
+        "div.gallery": [
+            {
+                "scroll_y": sy,
+                "pct": 0,
+                "key": "div.gallery",
+                "top": 100,
+                "left": 0,
+                "opacity": "1",
+                "scale": 1.0,
+                "translateX": -sy * 0.5,
+                "parentScrollLeft": 0,
+                "parentOverflowX": "visible",
+                "clipPath": "none",
+                "position": "relative",
+            }
+            for sy in (0, 400, 800, 1200, 1600)
+        ]
+    }
+    findings = _analyze_motion_history(history, viewport_height=900)
+    assert any(f.classification == "HORIZONTAL_SCROLL" for f in findings)
+
+
+def test_sticky_candidate_can_pin():
+    history = {
+        "sticky:div.pin": [
+            {
+                "scroll_y": sy,
+                "pct": 0,
+                "key": "sticky:div.pin",
+                "top": 40,
+                "left": 0,
+                "opacity": "1",
+                "scale": 1.0,
+                "translateX": 0,
+                "parentScrollLeft": 0,
+                "parentOverflowX": "visible",
+                "clipPath": "none",
+                "position": "sticky",
+                "stickyCandidate": True,
+            }
+            for sy in (0, 500, 1000, 1500, 2000)
+        ]
+    }
+    findings = _analyze_motion_history(history, viewport_height=900)
+    assert any(f.classification == "PINNED" for f in findings)

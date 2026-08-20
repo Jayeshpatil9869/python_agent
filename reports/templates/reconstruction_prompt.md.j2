@@ -4,15 +4,29 @@
 # Reconstruction Prompt
 
 ## Role
-Senior frontend architect + motion designer recreating an ORIGINAL experience inspired by principles observed at {{ website.url }}.
+Senior frontend architect + Awwwards-level motion designer recreating an **ORIGINAL** experience inspired by principles observed at {{ website.url }}.
 
 ## Objective
 Rebuild the **underlying experience system** (design + motion + interaction), not a clone.
 
 ## Do Not Copy
-- logos, brand names, proprietary copy
-- exact images/videos/artwork
-- trademarks
+- logos, trademarks, proprietary copy
+- exact images, videos, unique artwork
+- brand identity assets
+
+Recreate only:
+- design principles
+- motion principles
+- interaction patterns
+- layout logic
+- visual hierarchy
+- experience choreography
+
+## Suggested Stack (adapt to evidence)
+- React / Next.js where appropriate for routing and page shells
+- GSAP + ScrollTrigger **only** when scroll-scrub / pin behavior is OBSERVED or GSAP is DETECTED
+- CSS for layout, tokens, and simple state transitions
+- Prefer reduced-motion / touch fallbacks
 
 ## Design System (Observed)
 ### Colors
@@ -29,37 +43,51 @@ Rebuild the **underlying experience system** (design + motion + interaction), no
 {% if motion %}
 - Personality: {{ motion.motion_personality|join(', ') }}
 - Preloader: {{ motion.preloader.type }} (observed={{ motion.preloader.observed }})
-- Hero: {{ motion.hero_animation }}
+- Hero status: {{ motion.hero_animation.status if motion.hero_animation else 'UNKNOWN' }}
 - GSAP: {{ motion.gsap_status }} | ScrollTrigger: {{ motion.scrolltrigger_status }}
 - Parallax findings: {{ motion.parallax|length }}
 - Pin findings: {{ motion.pinning|length }}
 - Horizontal scroll findings: {{ motion.horizontal_scroll|length }}
+- Hover (site-wide): {{ motion.hover_motion|length }}
 - Custom cursor: {{ motion.cursor.custom_cursor }}
 {% endif %}
 
-## Implementation Guidance
+## Implementation Sequence
 Only implement techniques supported by observed behavior:
 
+1. **Tokens + static layout** from observed design system
 {% if motion and motion.preloader.observed %}
-- Gate the experience with a preloader matching observed type: {{ motion.preloader.type }}
+2. **Preloader timeline** matching type `{{ motion.preloader.type }}`
+{% else %}
+2. Skip preloader (NOT_OBSERVED / unclassified overlay)
 {% endif %}
 {% if motion and motion.hero_animation.status == 'OBSERVED' %}
-- Timeline-based hero reveal (opacity/transform) after load
+3. **Hero entrance timeline** (opacity/transform — not layout-only movement)
+{% else %}
+3. Skip choreographed hero entrance (status={{ motion.hero_animation.status if motion and motion.hero_animation else 'UNKNOWN' }})
 {% endif %}
-{% if motion and motion.scrolltrigger_analysis %}
-- Scroll-triggered section reveals with scrub where OBSERVED
+4. **Section reveal system** where scroll findings exist
+{% if motion and motion.image_animation %}
+5. **Image mask / scale reveals** where OBSERVED
 {% endif %}
 {% if motion and motion.parallax %}
-- Differential parallax on media layers where OBSERVED
+6. **Scrubbed parallax** on media layers where OBSERVED
 {% endif %}
 {% if motion and motion.pinning %}
-- Pinned/sticky section behavior where OBSERVED
+7. **Pinned sections** where OBSERVED (distinguish CSS sticky vs JS pin)
 {% endif %}
 {% if motion and motion.horizontal_scroll %}
-- Vertical-to-horizontal gallery section where OBSERVED
+8. **Horizontal gallery** driven by vertical scroll where OBSERVED
 {% endif %}
-{% if motion and motion.cursor.custom_cursor %}
-- Custom cursor / follower interaction on desktop; disable on touch
+{% if motion and motion.text_animation %}
+9. **Text line/word reveals** only if split-text DOM structure was OBSERVED
+{% endif %}
+{% if motion and motion.hover_motion %}
+10. **Hover micro-interactions** for interactive components
+{% endif %}
+11. **Responsive motion strategy** — simplify parallax/cursor on touch
+{% if motion and motion.page_transitions and motion.page_transitions|selectattr('observed')|list %}
+12. **Page transitions** matching observed exit/enter sequence
 {% endif %}
 
 ### Technology Clues
@@ -71,8 +99,8 @@ Only implement techniques supported by observed behavior:
 {% if motion %}
 {{ motion.mobile_motion }}
 {% endif %}
-Simplify parallax/cursor on mobile; preserve primary reveal choreography if observed.
 
 ## Confidence Discipline
 Mark every inferred duration/easing as ESTIMATED or UNKNOWN unless runtime evidence supports OBSERVED.
+Never claim GSAP/ScrollTrigger as facts unless DETECTED from runtime/global evidence.
 {% endif %}

@@ -1,0 +1,247 @@
+# Awwwards Experience Blueprint
+
+> Implementation-oriented experience model derived from **runtime evidence**.
+> Create an **ORIGINAL** website inspired by these principles — do not copy brand assets, copy, logos, or proprietary media.
+> This is **not** an official Awwwards score or certification.
+
+## 01. Creative Direction
+
+{{ motion.motion_summary if motion else 'No motion summary.' }}
+
+Personality tags: {{ motion.motion_personality|join(', ') if motion and motion.motion_personality else 'UNKNOWN' }}
+
+## 02. Visual Language
+
+{% if design %}
+{{ design.design_direction or 'Inferred from observed color/type/layout evidence.' }}
+
+Design ↔ Motion: {{ design.design_motion_relationship or 'UNKNOWN' }}
+{% else %}
+UNKNOWN
+{% endif %}
+
+## 03. Color Tokens
+
+{% if design_system and design_system.colors %}
+{% for c in design_system.colors[:12] %}
+- **{{ c.role or 'Observed' }}**: `{{ c.value }}` (count={{ c.count }})
+{% endfor %}
+{% else %}
+No color tokens extracted.
+{% endif %}
+
+## 04. Typography Tokens
+
+{% if design_system and design_system.typography %}
+{% for t in design_system.typography[:10] %}
+- {{ t.role or 'text' }}: {{ t.font_family }} / {{ t.font_size }} / weight {{ t.font_weight }}
+{% endfor %}
+{% else %}
+No typography tokens extracted.
+{% endif %}
+
+## 05. Layout System
+
+{% if design and design.layout_system %}
+```json
+{{ design.layout_system | tojson }}
+```
+{% else %}
+UNKNOWN
+{% endif %}
+
+## 06. Preloader
+
+- Observed: **{{ motion.preloader.observed if motion else false }}**
+- Type: {{ motion.preloader.type if motion else 'UNKNOWN' }}
+- Duration status: {{ motion.preloader.duration_status if motion else 'UNKNOWN' }}
+- Behavior: {{ motion.preloader.progress_behavior if motion else '' }}
+
+Only implement a preloader if status is OBSERVED. Persistent overlays may be COOKIE_BANNER / UNKNOWN_OVERLAY — do not treat those as preloaders.
+
+## 07. Page Load Choreography
+
+{% if motion and motion.page_load %}
+- Phases sampled: {{ motion.page_load.phases|length }}
+- Navigation: {{ motion.navigation_animation.status if motion.navigation_animation else 'UNKNOWN' }}
+- Hero: {{ motion.hero_animation.status if motion.hero_animation else 'UNKNOWN' }}
+{% if motion.hero_animation and motion.hero_animation.status == 'LAYOUT_CHANGE' %}
+- Note: hero geometry changed without animated style properties — treat as layout reflow, not entrance animation.
+{% endif %}
+{% endif %}
+
+## 08. Hero Animation
+
+```json
+{{ motion.hero_animation | tojson if motion else '{}' }}
+```
+
+## 09. Scroll System
+
+```json
+{{ motion.scroll_system | tojson if motion else '{}' }}
+```
+
+## 10. ScrollTrigger Specifications
+
+Status: {{ motion.scrolltrigger_status if motion else 'UNKNOWN' }} (behavioral inference separate from library detection)
+
+{% if motion and motion.scrolltrigger_analysis %}
+{% for f in motion.scrolltrigger_analysis[:15] %}
+- `{{ f.classification }}` on `{{ f.element }}` (scrub={{ f.scrub }}, pin={{ f.pin }}, confidence={{ f.confidence }})
+{% endfor %}
+{% else %}
+No ScrollTrigger-like findings OBSERVED.
+{% endif %}
+
+## 11. Parallax
+
+{% if motion and motion.parallax %}
+{% for f in motion.parallax[:10] %}
+- {{ f.element }} ratio={{ f.parallax_ratio }} ({{ f.confidence }})
+{% endfor %}
+{% else %}
+NOT_OBSERVED
+{% endif %}
+
+## 12. Pinning
+
+{% if motion and motion.pinning %}
+{% for f in motion.pinning[:10] %}
+- {{ f.element }} ({{ f.confidence }})
+{% endfor %}
+{% else %}
+NOT_OBSERVED
+{% endif %}
+
+## 13. Horizontal Scroll
+
+{% if motion and motion.horizontal_scroll %}
+{% for f in motion.horizontal_scroll[:10] %}
+- {{ f.element }} — require transform/scrollLeft evidence (not mere overflow)
+{% endfor %}
+{% else %}
+NOT_OBSERVED
+{% endif %}
+
+## 14. Text Animation
+
+{% if motion and motion.text_animation %}
+{% for t in motion.text_animation[:12] %}
+- {{ t.classification }} — {{ t.element }} ({{ t.confidence }})
+{% endfor %}
+{% else %}
+NOT_OBSERVED / insufficient split-text evidence
+{% endif %}
+
+## 15. Image Animation
+
+{% if motion and motion.image_animation %}
+{% for t in motion.image_animation[:12] %}
+- {{ t.classification }} — {{ t.element }}
+{% endfor %}
+{% else %}
+NOT_OBSERVED
+{% endif %}
+
+## 16. Video
+
+{% if motion and motion.video_animation %}
+{% for t in motion.video_animation[:8] %}
+- {{ t }}
+{% endfor %}
+{% else %}
+NOT_OBSERVED
+{% endif %}
+
+## 17. Cursor
+
+- Custom cursor: {{ motion.cursor.custom_cursor if motion else false }}
+- Magnetic: {{ motion.cursor.magnetic if motion else false }}
+- Confidence: {{ motion.cursor.confidence if motion else 'UNKNOWN' }}
+
+## 18. Hover
+
+Site-wide hover observations: {{ motion.hover_motion|length if motion else 0 }}
+
+{% if motion and motion.hover_motion %}
+{% for h in motion.hover_motion[:12] %}
+- {{ h.element }} — {{ h.behavior }}
+{% endfor %}
+{% endif %}
+
+## 19. Micro-interactions
+
+Count: {{ motion.micro_interactions|length if motion else 0 }}
+
+## 20. Page Transitions
+
+{% if motion and motion.page_transitions %}
+{% for t in motion.page_transitions %}
+- {{ t.type }} ({{ t.from_url }} → {{ t.to_url }}) observed={{ t.observed }}
+{% endfor %}
+{% else %}
+NOT_OBSERVED
+{% endif %}
+
+## 21. Responsive Motion
+
+```json
+{{ motion.mobile_motion | tojson if motion else '{}' }}
+```
+
+## 22. Motion Hierarchy
+
+```json
+{{ motion.motion_hierarchy | tojson if motion else '{}' }}
+```
+
+## 23. Suggested Frontend Architecture
+
+- Prefer componentized page shells (hero / section / gallery / footer)
+- Keep motion modules isolated: `preloader`, `heroTimeline`, `scrollSystem`, `interactions`
+- Drive scroll-linked values from a single scroll progress source
+- Feature-detect touch to disable cursor/magnetic layers
+
+## 24. Suggested GSAP Architecture
+
+- GSAP library status from evidence: **{{ motion.gsap_status if motion else 'UNKNOWN' }}**
+- ScrollTrigger status: **{{ motion.scrolltrigger_status if motion else 'UNKNOWN' }}**
+- Only adopt GSAP + ScrollTrigger when status is DETECTED/HIGH_CONFIDENCE or when scrub/pin behavior is OBSERVED and you choose GSAP as the implementation vehicle (hypothesis, not fact)
+
+{% if motion and motion.implementation_hypotheses %}
+### Hypotheses
+{% for h in motion.implementation_hypotheses %}
+- {{ h }}
+{% endfor %}
+{% endif %}
+
+## 25. Implementation Sequence
+
+1. Tokens (color, type, spacing) from observed design system
+2. Static layout / sections without motion
+3. Preloader only if OBSERVED
+4. Hero entrance timeline only if OBSERVED (not LAYOUT_CHANGE)
+5. Scroll reveals / scrub / pin / parallax where OBSERVED
+6. Hover / cursor / magnetic micro-interactions where OBSERVED
+7. Page transitions where OBSERVED
+8. Responsive simplification pass (compare desktop vs mobile evidence)
+
+## Internal Experience Intelligence Score
+
+{% set score = design.experience_score if design else {} %}
+{% if score %}
+**{{ score.total }} / {{ score.max }}** — {{ score.label }}
+
+{{ score.disclaimer }}
+
+{% for key, cat in score.categories.items() %}
+- {{ key }}: {{ cat.score }} / {{ cat.max }}{% if cat.notes %} ({{ cat.notes|join('; ') }}){% endif %}
+{% endfor %}
+{% else %}
+Score unavailable.
+{% endif %}
+
+## Evidence Discipline
+
+Every `OBSERVED` claim must map to runtime JSON under `data/` or `runtime/`. Use `ESTIMATED` / `INFERRED` / `UNKNOWN` otherwise.

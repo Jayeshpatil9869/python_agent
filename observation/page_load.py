@@ -58,16 +58,58 @@ INIT_TRACE_JS = """
 })();
 """
 
-MEANINGFUL_KEYS = ("opacity", "transform", "clipPath", "visibility", "filter")
+# Animated properties only — layout geometry (top/left/height) alone is LAYOUT CHANGE, not animation.
+ANIMATED_KEYS = ("opacity", "transform", "clipPath", "visibility", "filter")
 
 
-def _meaningful_change(a: dict | None, b: dict | None) -> bool:
+def _animated_change(a: dict | None, b: dict | None) -> bool:
+    """True only when opacity/transform/clip/filter/visibility actually change."""
     if not a or not b:
         return False
-    # Ignore tiny top jitter (< 8px) as layout thrash
-    top_delta = abs((a.get("top") or 0) - (b.get("top") or 0))
-    style_changed = any(a.get(k) != b.get(k) for k in MEANINGFUL_KEYS)
-    return style_changed or top_delta >= 8
+    for k in ANIMATED_KEYS:
+        av, bv = a.get(k), b.get(k)
+        if av is None and bv is None:
+            continue
+        if av != bv:
+            # Ignore none ↔ none / matrix(1,0,0,1,0,0) ↔ none equivalents loosely
+            if k == "transform" and _is_identity_transform(av) and _is_identity_transform(bv):
+                continue
+            if k == "filter" and _is_none_like(av) and _is_none_like(bv):
+                continue
+            if k == "clipPath" and _is_none_like(av) and _is_none_like(bv):
+                continue
+            return True
+    return False
+
+
+def _is_none_like(v: object) -> bool:
+    s = str(v or "").strip().lower()
+    return s in ("", "none", "initial", "unset")
+
+
+def _is_identity_transform(v: object) -> bool:
+    s = str(v or "").strip().lower()
+    if _is_none_like(s):
+        return True
+    return s in ("matrix(1, 0, 0, 1, 0, 0)", "matrix(1,0,0,1,0,0)", "none")
+
+
+def _layout_only_change(a: dict | None, b: dict | None) -> bool:
+    """Geometry moved but no animated style properties changed."""
+    if not a or not b:
+        return False
+    if _animated_change(a, b):
+        return False
+    return any(
+        abs((a.get(k) or 0) - (b.get(k) or 0)) >= 8
+        for k in ("top", "height")
+        if isinstance(a.get(k), (int, float)) or isinstance(b.get(k), (int, float))
+    )
+
+
+# Back-compat alias used by tests / callers expecting the old name
+def _meaningful_change(a: dict | None, b: dict | None) -> bool:
+    return _animated_change(a, b)
 
 
 def _opacity(el: dict | None) -> float:
@@ -144,11 +186,15 @@ async def observe_page_load(
                     if _opacity(sample) < 0.95:
                         start = sample
                         break
-                if _meaningful_change(start, end) or (_opacity(start) < 0.95 and _opacity(end) >= 0.99):
+                opacity_reveal = _opacity(start) < 0.95 and _opacity(end) >= 0.99
+                if _animated_change(start, end) or opacity_reveal:
                     reveal_t = None
                     for p in phases:
                         el = p.get("h1") or p.get("hero")
-                        if el and _opacity(el) >= 0.99:
+                        if el and _opacity(el) >= 0.99 and (
+                            _opacity(start) < 0.95
+                            or _animated_change(start, el)
+                        ):
                             reveal_t = p.get("t")
                             break
                     hero_anim = {
@@ -160,14 +206,25 @@ async def observe_page_load(
                         "duration_status": "OBSERVED" if reveal_t is not None else "ESTIMATED",
                         "reveal_at_ms": reveal_t,
                         "duration_ms": reveal_t if reveal_t is not None else (last.get("t") if last else None),
+                        "animated_properties": [
+                            k for k in ANIMATED_KEYS
+                            if start.get(k) != end.get(k)
+                        ],
+                    }
+                elif _layout_only_change(start, end):
+                    hero_anim = {
+                        "status": "LAYOUT_CHANGE",
+                        "element": end.get("key", "hero"),
+                        "initial": start,
+                        "final": end,
+                        "trigger": "page_load",
+                        "note": "Geometry changed without opacity/transform/clip/filter animation",
+                        "duration_status": "UNKNOWN",
                     }
 
             if nav_series and len(nav_series) >= 2:
                 n0, n1 = nav_series[0], nav_series[-1]
-                if _meaningful_change(n0, n1) and (
-                    any(n0.get(k) != n1.get(k) for k in MEANINGFUL_KEYS)
-                    or abs((n0.get("top") or 0) - (n1.get("top") or 0)) >= 8
-                ):
+                if _animated_change(n0, n1):
                     nav_anim = {
                         "status": "OBSERVED",
                         "element": n1.get("key", "nav"),
@@ -175,6 +232,17 @@ async def observe_page_load(
                         "final": n1,
                         "trigger": "page_load",
                         "duration_status": "ESTIMATED",
+                        "animated_properties": [
+                            k for k in ANIMATED_KEYS
+                            if n0.get(k) != n1.get(k)
+                        ],
+                    }
+                elif _layout_only_change(n0, n1):
+                    nav_anim = {
+                        "status": "LAYOUT_CHANGE",
+                        "element": n1.get("key", "nav"),
+                        "note": "Nav geometry changed without animated style properties",
+                        "duration_status": "UNKNOWN",
                     }
 
         timeline.phases = [

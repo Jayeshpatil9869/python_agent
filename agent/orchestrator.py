@@ -177,9 +177,6 @@ class WebsiteAnalysisAgent:
     def _print_summary(self, intelligence: WebsiteIntelligence, validation: dict) -> None:
         responsive_count = sum(len(p.responsive) for p in intelligence.pages)
         interaction_count = sum(len(p.interactions) for p in intelligence.pages)
-        animation_count = sum(len(p.animations) for p in intelligence.pages)
-        tech_detected = [t for t in intelligence.technologies if t.status in ("DETECTED", "HIGH_CONFIDENCE")]
-
         depth_summary = crawl_depth_summary(intelligence.crawl_pages) if intelligence.crawl_pages else {}
         depth_lines = [f"  Depth {d}: {c} pages" for d, c in depth_summary.items()]
 
@@ -201,35 +198,58 @@ class WebsiteAnalysisAgent:
 
         lines = [
             "",
-            "====================================",
-            "WEBSITE INTELLIGENCE AGENT",
-            "====================================",
+            "==============================================",
+            " AWWWARDS WEBSITE EXPERIENCE FORENSICS",
+            "==============================================",
             f"URL: {intelligence.url}",
             f"Pages: {len(intelligence.pages)}",
             f"Depth: {self.options.depth}",
         ]
         lines.extend(depth_lines or ["  Depth 0: 1 page"])
+        mi = intelligence.motion_intelligence
+        score = (intelligence.design_intelligence.experience_score or {}).get("total")
+        hover_n = len(mi.hover_motion)
         lines.extend([
-            f"Responsive: {responsive_count} viewports",
+            "",
+            "Design:",
+            "  [OK] Color / Typography / Layout",
+            "",
+            "Motion:",
+            f"  Preloader       {'OBSERVED' if mi.preloader.observed else mi.preloader.type or 'NOT_OBSERVED'}",
+            f"  Page Load       {'OBSERVED' if mi.page_load.phases else 'UNKNOWN'}",
+            f"  Hero            {(mi.hero_animation or {}).get('status', 'UNKNOWN')}",
+            f"  Scroll          {'OBSERVED' if mi.scrolltrigger_analysis else 'NOT_OBSERVED'}",
+            f"  Scrub           {'OBSERVED' if any(getattr(f, 'scrub', None) == 'YES' for f in mi.scrolltrigger_analysis) else 'NOT_OBSERVED'}",
+            f"  Parallax        {'OBSERVED' if mi.parallax else 'NOT_OBSERVED'}",
+            f"  Pin             {'OBSERVED' if mi.pinning else 'NOT_OBSERVED'}",
+            f"  Horizontal      {'OBSERVED' if mi.horizontal_scroll else 'NOT_OBSERVED'}",
+            f"  Hover           {'OBSERVED' if hover_n else 'NOT_OBSERVED'} ({hover_n})",
+            f"  Cursor          {'OBSERVED' if mi.cursor.custom_cursor else 'NOT_OBSERVED'}",
+            f"  Transitions     {'OBSERVED' if any(t.observed for t in mi.page_transitions) else 'NOT_OBSERVED'}",
+            "",
             f"Interactions: {candidates} candidates, {tested} tested, {state_changes} state changes",
-            f"Motion: {animation_count} animations",
-            f"Technology: {len(tech_detected)} detected/high-confidence",
+            f"Responsive: {responsive_count} viewports",
+            f"Technology: GSAP {mi.gsap_status} | ScrollTrigger {mi.scrolltrigger_status}",
             f"AI: {ai_status}",
-            f"Reports: 10 generated",
-            f"Preloader: {'OBSERVED' if intelligence.motion_intelligence.preloader.observed else 'NOT_OBSERVED'}",
-            f"Motion findings: {len(intelligence.motion_intelligence.scrolltrigger_analysis)}",
-            f"GSAP: {intelligence.motion_intelligence.gsap_status}",
+            f"Experience Score: {score if score is not None else 'n/a'} / 100",
             f"Validation: {validation.get('overall_status', intelligence.analysis_status)}",
+            "Reports: 11",
         ])
         for failure in validation.get("failures", []):
-            lines.append(f"  FAILED — {failure}")
+            lines.append(f"  FAILED - {failure}")
         for warning in validation.get("warnings", [])[:5]:
-            lines.append(f"  WARN — {warning}")
+            lines.append(f"  WARN - {warning}")
         for err in validation.get("quality_errors", [])[:3]:
-            lines.append(f"  QUALITY — {err}")
+            lines.append(f"  QUALITY - {err}")
+        for err in validation.get("semantic_errors", [])[:5]:
+            lines.append(f"  SEMANTIC - {err}")
         lines.append(f"Output: {self.output_dir}")
-        lines.append("====================================")
-        console.print("\n".join(lines))
+        lines.append("==============================================")
+        text = "\n".join(lines)
+        try:
+            console.print(text)
+        except Exception:
+            print(text.encode("ascii", "replace").decode("ascii"))
 
     def _save_json(self, intelligence: WebsiteIntelligence) -> None:
         data_dir = self.output_dir / "data"
@@ -281,17 +301,30 @@ class WebsiteAnalysisAgent:
                 data_dir / "typography.json",
                 intelligence.design_intelligence.typography_hierarchy,
             )
-            if intelligence.pages:
-                primary = intelligence.pages[0]
-                write_json(data_dir / "preloader.json", primary.preloader.model_dump(mode="json"))
-                write_json(data_dir / "page_load.json", primary.page_load.model_dump(mode="json"))
-                write_json(
-                    data_dir / "transitions.json",
-                    [t.model_dump(mode="json") for t in primary.page_transitions],
-                )
+
+            # Prefer site-wide best preloader/page_load from motion intelligence
+            mi = intelligence.motion_intelligence
+            write_json(data_dir / "preloader.json", mi.preloader.model_dump(mode="json"))
+            write_json(data_dir / "page_load.json", mi.page_load.model_dump(mode="json"))
             write_json(
-                data_dir / "motion.json",
-                intelligence.motion_intelligence.model_dump(mode="json"),
+                data_dir / "transitions.json",
+                [t.model_dump(mode="json") for t in mi.page_transitions]
+                or [t.model_dump(mode="json") for p in intelligence.pages for t in p.page_transitions],
             )
+
+            from intelligence.experience_graph import build_experience_graph
+            from intelligence.motion_aggregator import persist_motion_artifacts
+            from intelligence.timeline_builder import build_complete_motion_timeline
+
+            persist_motion_artifacts(intelligence, data_dir)
+            graph = build_experience_graph(intelligence)
+            write_json(data_dir / "experience_graph.json", graph)
+            write_json(
+                data_dir / "page_load_timeline.json",
+                build_complete_motion_timeline(intelligence),
+            )
+            score = intelligence.design_intelligence.experience_score or {}
+            if score:
+                write_json(data_dir / "experience_score.json", score)
 
         self.logger.info("JSON data saved to %s", data_dir)

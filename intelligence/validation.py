@@ -34,6 +34,10 @@ def validate_analysis_output(
         "failures": [],
         "warnings": [],
         "quality_errors": [],
+        "semantic_errors": [],
+        "confidence_errors": [],
+        "evidence_errors": [],
+        "missing_reports": [],
         "semantic_lint": [],
     }
 
@@ -120,9 +124,11 @@ def validate_analysis_output(
         "INTERACTION-MAP.md",
         "COMPONENT-MAP.md",
         "TECHNOLOGY-REPORT.md",
+        "AWWWARDS-EXPERIENCE-BLUEPRINT.md",
         "RECONSTRUCTION-PROMPT.md",
     ]
     missing_reports = [r for r in reports if not (output_dir / r).exists()]
+    result["missing_reports"] = missing_reports
     if missing_reports:
         result["failures"].append(f"Missing reports: {', '.join(missing_reports)}")
 
@@ -150,6 +156,72 @@ def validate_analysis_output(
         result["metrics"]["scroll_findings"] = len(motion.get("scrolltrigger_analysis") or [])
         result["metrics"]["preloader_observed"] = bool((motion.get("preloader") or {}).get("observed"))
         result["metrics"]["hero_status"] = (motion.get("hero_animation") or {}).get("status")
+        result["metrics"]["hover_motion"] = len(motion.get("hover_motion") or [])
+
+    # Site-wide motion aggregation presence (only required when motion.json exists)
+    site_motion = _load_json_obj(data_dir / "motion" / "site_motion.json")
+    if motion and not site_motion:
+        result["warnings"].append("Missing data/motion/site_motion.json (site-wide aggregation)")
+    elif site_motion:
+        result["metrics"]["motion_pages_aggregated"] = site_motion.get("page_count", 0)
+        if pages and site_motion.get("page_count", 0) < len(pages):
+            result["semantic_errors"].append(
+                f"SEMANTIC_CONTRADICTION: site_motion pages={site_motion.get('page_count')} < analyzed pages={len(pages)}"
+            )
+
+    # Semantic contradictions: Interaction Map vs Motion Intelligence
+    hover_interactions = [i for i in interactions if (i.get("trigger") or "").lower() == "hover"]
+    motion_hovers = len(motion.get("hover_motion") or []) if motion else 0
+    if len(hover_interactions) >= 3 and motion_hovers == 0:
+        result["semantic_errors"].append(
+            f"SEMANTIC_CONTRADICTION: interactions.json has {len(hover_interactions)} hover "
+            f"but MOTION hover_motion={motion_hovers}"
+        )
+
+    # Hero: OBSERVED without animated property evidence
+    hero = (motion.get("hero_animation") or {}) if motion else {}
+    if hero.get("status") == "OBSERVED":
+        initial = hero.get("initial") or {}
+        final = hero.get("final") or {}
+        animated_keys = ("opacity", "transform", "clipPath", "visibility", "filter")
+        changed = any(initial.get(k) != final.get(k) for k in animated_keys)
+        opacity_reveal = False
+        try:
+            opacity_reveal = float(initial.get("opacity") or 1) < 0.95 and float(final.get("opacity") or 1) >= 0.99
+        except Exception:
+            pass
+        if not changed and not opacity_reveal and not hero.get("animated_properties"):
+            result["evidence_errors"].append(
+                "EVIDENCE: hero marked OBSERVED without opacity/transform/clip/filter change"
+            )
+
+    # Confidence contradiction: duration ESTIMATED in JSON vs OBSERVED wording in report
+    motion_report = output_dir / "MOTION-INTELLIGENCE.md"
+    if motion_report.exists() and motion:
+        text = motion_report.read_text(encoding="utf-8", errors="ignore")
+        pl = motion.get("page_load") or {}
+        if pl.get("duration_status") == "ESTIMATED" and re.search(
+            r"duration\s+[:=]?\s*OBSERVED", text, re.IGNORECASE
+        ):
+            result["confidence_errors"].append(
+                "CONFIDENCE_CONTRADICTION: page_load duration_status=ESTIMATED but report says OBSERVED"
+            )
+
+    # Technology confidence contradiction
+    tech_by_name = {t.get("name", "").lower(): t for t in technologies}
+    gsap = tech_by_name.get("gsap")
+    if gsap and (gsap.get("status") or "").upper() == "POSSIBLE":
+        for report_name in ("MOTION-INTELLIGENCE.md", "TECHNOLOGY-REPORT.md", "AWWWARDS-EXPERIENCE-BLUEPRINT.md"):
+            rp = output_dir / report_name
+            if rp.exists():
+                rt = rp.read_text(encoding="utf-8", errors="ignore")
+                if re.search(r"GSAP\s+(DETECTED|HIGH_CONFIDENCE)\b", rt) and "POSSIBLE" not in rt[:500]:
+                    # Only flag hard DETECTED claims when tech is POSSIBLE
+                    if re.search(r"\bGSAP\s+DETECTED\b", rt):
+                        result["confidence_errors"].append(
+                            f"TECHNOLOGY_CONFIDENCE_CONTRADICTION: {report_name} claims GSAP DETECTED "
+                            f"but technologies.json status=POSSIBLE"
+                        )
 
     # Tech wording vs confidence
     for tech in technologies:
@@ -167,7 +239,6 @@ def validate_analysis_output(
                     )
 
     # Semantic report linting
-    tech_by_name = {t.get("name", "").lower(): t for t in technologies}
     for report_name in reports:
         report_path = output_dir / report_name
         if not report_path.exists():
@@ -193,7 +264,9 @@ def validate_analysis_output(
     ]
     if critical_failures or (not pages and not result["metrics"].get("pages")):
         result["overall_status"] = "FAIL"
-    elif result["failures"] or result["quality_errors"]:
+    elif result["failures"] or result["quality_errors"] or result["evidence_errors"]:
+        result["overall_status"] = "PARTIAL"
+    elif result["semantic_errors"] or result["confidence_errors"]:
         result["overall_status"] = "PARTIAL"
     elif result["warnings"] or result["semantic_lint"]:
         result["overall_status"] = "PARTIAL"

@@ -50,6 +50,7 @@ def test_validation_pass_with_evidence(tmp_path):
         "INTERACTION-MAP.md",
         "COMPONENT-MAP.md",
         "TECHNOLOGY-REPORT.md",
+        "AWWWARDS-EXPERIENCE-BLUEPRINT.md",
         "RECONSTRUCTION-PROMPT.md",
     ):
         (tmp_path / report).write_text("# Report\n", encoding="utf-8")

@@ -29,6 +29,7 @@ class ReportGenerator:
             "INTERACTION-MAP.md": "interaction_map.md.j2",
             "COMPONENT-MAP.md": "component_map.md.j2",
             "TECHNOLOGY-REPORT.md": "technology_report.md.j2",
+            "AWWWARDS-EXPERIENCE-BLUEPRINT.md": "awwards_blueprint.md.j2",
             "RECONSTRUCTION-PROMPT.md": "reconstruction_prompt.md.j2",
         }
         context = self._build_context()
